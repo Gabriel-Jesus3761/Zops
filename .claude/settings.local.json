@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(npx shadcn@latest init:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(del srcApp.css)",
+      "Bash(npm run build:*)",
+      "Bash(xargs cat:*)",
+      "Bash(npm run dev:*)",
+      "Bash(dir:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(npx tsc:*)",
+      "Bash(powershell -Command \"cd 'c:\\\\Dev\\\\Zops\\\\plano-operacional'; npm run build 2>&1\" 2>&1:*)",
+      "Bash(powershell -Command \"cat ''c:\\\\Dev\\\\Zops\\\\plano-operacional\\\\package.json'' | Select-String -Pattern ''xlsx''\")",
+      "Bash(powershell -Command \"cd ''c:\\\\Dev\\\\Zops\\\\plano-operacional''; npm install xlsx\")",
+      "Bash(powershell -Command \"Get-Content ''C:\\\\Users\\\\GABRIE~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Dev-Zops\\\\tasks\\\\b4dd28d.output'' -Wait\")",
+      "Bash(powershell -Command \"Get-Process | Where-Object {$_ProcessName -like ''*node*'' -or $_ProcessName -like ''*vite*''} | Stop-Process -Force\")",
+      "Skill(frontend-design)",
+      "Skill(frontend-design:*)",
+      "Bash(powershell -Command \"cd ''c:\\\\Dev\\\\Zops\\\\plano-operacional''; npm install @tanstack/react-virtual\")",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run:*)",
+      "Bash(npx vite build:*)",
+      "Bash(if exist \"node_modules\\\\.vite\" rmdir /s /q \"node_modules\\\\.vite\")",
+      "Bash(firebase deploy:*)",
+      "Bash(findstr:*)",
+      "Bash(test:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)"
+    ]
+  }
+}

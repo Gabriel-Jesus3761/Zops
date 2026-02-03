@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/zops-mobile.appspot.com/o {
+    // Regras para imagens do carrossel de login
+    match /login-carousel/{imageId} {
+      // Qualquer um pode LER as imagens (necessário para tela de login pública)
+      allow read: if true;
+
+      // ⚠️ TEMPORÁRIO: Auth check removido para desenvolvimento
+      // TODO: Restaurar "request.auth != null &&" quando Cloud Function retornar Custom Token
+      // Ver: plano-operacional/SEGURANCA_PRODUCAO.md
+      allow write, delete: if request.resource.size <= 300 * 1024 * 1024 // Máximo 300MB
+        && request.resource.contentType.matches('image/(jpeg|png|webp)'); // Apenas imagens
+
+      // ✅ PRODUÇÃO (restaurar antes de deploy):
+      // allow write, delete: if request.auth != null
+      //   && request.resource.size <= 300 * 1024 * 1024
+      //   && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    // Negar acesso a tudo mais por padrão
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

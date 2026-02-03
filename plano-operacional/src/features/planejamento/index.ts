@@ -1,0 +1,6 @@
+export { MCOListPage } from './pages/mco-list'
+export { MCOWizardPage } from './pages/mco-wizard'
+export { default as MCOResumoPage } from './pages/mco-resumo'
+export { default as MCODetalhesPage } from './pages/mco-detalhes'
+export { MCOEditPage } from './pages/mco-edit'
+export { HubspotPage } from './pages/hubspot'

@@ -1,0 +1,7 @@
+export { ResumoEventosSection } from './resumo-eventos-section'
+export { ResumoCasasSection } from './resumo-casas-section'
+export { ResumoECCSection } from './resumo-ecc-section'
+export { ResumoFieldZigerSection } from './resumo-field-ziger-section'
+export { ResumoReportTechSection } from './resumo-report-tech-section'
+export { ResumoReportsInternoSection } from './resumo-reports-interno-section'
+export { DashboardFilters } from './dashboard-filters'
