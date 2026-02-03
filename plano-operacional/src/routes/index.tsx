@@ -114,10 +114,6 @@ export const router = createBrowserRouter([
         element: <SettingsPage />,
         children: [
           {
-            index: true,
-            element: <Navigate to="/configuracoes/geral" replace />,
-          },
-          {
             path: 'geral',
             element: null,
           },

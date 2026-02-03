@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Cloud,
@@ -13,6 +13,7 @@ import {
   Users,
   Link2,
   Search,
+  SlidersHorizontal,
   Calculator,
   GitCommit,
   ChevronsUpDown,
@@ -147,6 +148,47 @@ const UNIFIED_STAGE_CONFIG: Record<string, { icon: React.ElementType; color: str
   'lost': { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-500/10', label: 'Perdido' },
 }
 
+const HUBSPOT_LOADING_STEPS = [
+  { label: 'Conectando com a API do HubSpot', target: 20 },
+  { label: 'Buscando pipelines e negócios', target: 45 },
+  { label: 'Classificando por estágios', target: 75 },
+  { label: 'Finalizando visualização', target: 95 },
+] as const
+
+type HubspotAdvancedFilters = {
+  pipelines: string[]
+  categories: string[]
+  dealName: string
+  dealId: string
+  pipelineId: string
+  companyName: string
+  cnpj: string
+  cep: string
+  city: string
+  state: string
+  address: string
+  placeId: string
+  createdFrom: string
+  createdTo: string
+}
+
+const createDefaultFilters = (): HubspotAdvancedFilters => ({
+  pipelines: [],
+  categories: [],
+  dealName: '',
+  dealId: '',
+  pipelineId: '',
+  companyName: '',
+  cnpj: '',
+  cep: '',
+  city: '',
+  state: '',
+  address: '',
+  placeId: '',
+  createdFrom: '',
+  createdTo: '',
+})
+
 export function HubspotPage() {
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({})
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
@@ -154,6 +196,10 @@ export function HubspotPage() {
   const [searchInput, setSearchInput] = useState('')
   const [selectedDeal, setSelectedDeal] = useState<HubspotDeal | null>(null)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [loadingProgress, setLoadingProgress] = useState(0)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [appliedFilters, setAppliedFilters] = useState<HubspotAdvancedFilters>(createDefaultFilters)
+  const [filterDraft, setFilterDraft] = useState<HubspotAdvancedFilters>(createDefaultFilters)
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text)
@@ -176,11 +222,122 @@ export function HubspotPage() {
     }
   }
 
-  const { data, isLoading, refetch, isFetching } = useQuery({
+  const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useQuery({
     queryKey: ['hubspot-deals'],
     queryFn: () => hubspotService.getDealsGrouped(),
     staleTime: 5 * 60 * 1000, // 5 minutos
   })
+
+  const lastUpdatedLabel = useMemo(() => {
+    if (!dataUpdatedAt) return 'Sem atualização ainda'
+    return new Date(dataUpdatedAt).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }, [dataUpdatedAt])
+
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingProgress(100)
+      const cleanupTimer = setTimeout(() => setLoadingProgress(0), 250)
+      return () => clearTimeout(cleanupTimer)
+    }
+
+    setLoadingProgress(prev => (prev > 8 ? prev : 8))
+
+    const interval = setInterval(() => {
+      setLoadingProgress(prev => {
+        const increment = Math.random() * 7 + 3
+        return Math.min(prev + increment, 95)
+      })
+    }, 420)
+
+    return () => clearInterval(interval)
+  }, [isLoading])
+
+  const activeLoadingStepIndex = useMemo(() => {
+    const index = HUBSPOT_LOADING_STEPS.findIndex(step => loadingProgress < step.target)
+    return index === -1 ? HUBSPOT_LOADING_STEPS.length - 1 : index
+  }, [loadingProgress])
+
+  const currentLoadingStepLabel = HUBSPOT_LOADING_STEPS[activeLoadingStepIndex]?.label || HUBSPOT_LOADING_STEPS[HUBSPOT_LOADING_STEPS.length - 1].label
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0
+    if (appliedFilters.pipelines.length > 0) count += 1
+    if (appliedFilters.categories.length > 0) count += 1
+    if (appliedFilters.dealName.trim()) count += 1
+    if (appliedFilters.dealId.trim()) count += 1
+    if (appliedFilters.pipelineId.trim()) count += 1
+    if (appliedFilters.companyName.trim()) count += 1
+    if (appliedFilters.cnpj.trim()) count += 1
+    if (appliedFilters.cep.trim()) count += 1
+    if (appliedFilters.city.trim()) count += 1
+    if (appliedFilters.state.trim()) count += 1
+    if (appliedFilters.address.trim()) count += 1
+    if (appliedFilters.placeId.trim()) count += 1
+    if (appliedFilters.createdFrom.trim()) count += 1
+    if (appliedFilters.createdTo.trim()) count += 1
+    return count
+  }, [appliedFilters])
+
+  const hasAdvancedFilters = activeFiltersCount > 0
+
+  const openFiltersModal = () => {
+    setFilterDraft({
+      ...appliedFilters,
+      pipelines: [...appliedFilters.pipelines],
+      categories: [...appliedFilters.categories],
+    })
+    setFiltersOpen(true)
+  }
+
+  const toggleDraftPipeline = (pipelineName: string) => {
+    setFilterDraft(prev => ({
+      ...prev,
+      pipelines: prev.pipelines.includes(pipelineName)
+        ? prev.pipelines.filter(name => name !== pipelineName)
+        : [...prev.pipelines, pipelineName]
+    }))
+  }
+
+  const toggleDraftCategory = (category: string) => {
+    setFilterDraft(prev => ({
+      ...prev,
+      categories: prev.categories.includes(category)
+        ? prev.categories.filter(item => item !== category)
+        : [...prev.categories, category]
+    }))
+  }
+
+  const applyFilters = () => {
+    setAppliedFilters({
+      ...filterDraft,
+      pipelines: [...filterDraft.pipelines],
+      categories: [...filterDraft.categories],
+    })
+    setFiltersOpen(false)
+  }
+
+  const resetDraftFilters = () => {
+    setFilterDraft(createDefaultFilters())
+  }
+
+  const clearAppliedFilters = () => {
+    const reset = createDefaultFilters()
+    setAppliedFilters(reset)
+    setFilterDraft(reset)
+  }
+
+  const updateDraftField = (field: keyof HubspotAdvancedFilters, value: string) => {
+    setFilterDraft(prev => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
 
   // Agrupa os deals por categoria unificada
   const unifiedGroupedDeals = useMemo(() => {
@@ -201,23 +358,77 @@ export function HubspotPage() {
     return unified
   }, [data?.grouped])
 
+  const pipelineOptions = useMemo(() => {
+    const knownPipelines = Object.values(HUBSPOT_PIPELINES)
+    const pipelinesFromDeals = Object.values(unifiedGroupedDeals)
+      .flatMap(deals => deals.map(deal => deal.pipelineName))
+      .filter(Boolean)
+
+    return Array.from(new Set([...knownPipelines, ...pipelinesFromDeals]))
+      .sort((a, b) => a.localeCompare(b))
+  }, [unifiedGroupedDeals])
+
   // Filtra os deals por termo de busca
   const filteredGroupedDeals = useMemo(() => {
-    if (!searchTerm.trim()) return unifiedGroupedDeals
+    const normalizedSearch = searchTerm.trim().toLowerCase()
+    const hasSearchTerm = normalizedSearch.length > 0
+    const hasFilters = hasAdvancedFilters
+
+    if (!hasSearchTerm && !hasFilters) return unifiedGroupedDeals
+
+    const matchesText = (source: string | null | undefined, value: string) => {
+      if (!value.trim()) return true
+      return (source || '').toLowerCase().includes(value.trim().toLowerCase())
+    }
+
+    const createdFromTimestamp = appliedFilters.createdFrom
+      ? new Date(`${appliedFilters.createdFrom}T00:00:00`).getTime()
+      : null
+
+    const createdToTimestamp = appliedFilters.createdTo
+      ? new Date(`${appliedFilters.createdTo}T23:59:59.999`).getTime()
+      : null
 
     const filtered: Record<string, HubspotDeal[]> = {}
 
     Object.entries(unifiedGroupedDeals).forEach(([category, deals]) => {
-      const filteredDeals = deals.filter(deal =>
-        deal.dealname?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      const filteredDeals = deals.filter(deal => {
+        if (hasSearchTerm && !matchesText(deal.dealname, normalizedSearch)) return false
+
+        if (appliedFilters.pipelines.length > 0 && !appliedFilters.pipelines.includes(deal.pipelineName || '')) return false
+
+        const dealCategory = STAGE_TO_UNIFIED[deal.dealstage]
+        if (appliedFilters.categories.length > 0 && (!dealCategory || !appliedFilters.categories.includes(dealCategory))) return false
+
+        if (!matchesText(deal.dealname, appliedFilters.dealName)) return false
+        if (!matchesText(deal.dealId, appliedFilters.dealId)) return false
+        if (!matchesText(deal.pipeline, appliedFilters.pipelineId)) return false
+        if (!matchesText(deal.nomeEmpresa, appliedFilters.companyName)) return false
+        if (!matchesText(deal.cnpj, appliedFilters.cnpj)) return false
+        if (!matchesText(deal.endereco?.cep, appliedFilters.cep)) return false
+        if (!matchesText(deal.endereco?.cidade, appliedFilters.city)) return false
+        if (!matchesText(deal.endereco?.estado, appliedFilters.state)) return false
+        if (!matchesText(deal.endereco?.logradouro, appliedFilters.address)) return false
+        if (!matchesText(deal.placeId, appliedFilters.placeId)) return false
+
+        if (createdFromTimestamp !== null || createdToTimestamp !== null) {
+          if (!deal.createdAt) return false
+          const createdTimestamp = new Date(deal.createdAt).getTime()
+          if (Number.isNaN(createdTimestamp)) return false
+          if (createdFromTimestamp !== null && createdTimestamp < createdFromTimestamp) return false
+          if (createdToTimestamp !== null && createdTimestamp > createdToTimestamp) return false
+        }
+
+        return true
+      })
+
       if (filteredDeals.length > 0) {
         filtered[category] = filteredDeals
       }
     })
 
     return filtered
-  }, [unifiedGroupedDeals, searchTerm])
+  }, [unifiedGroupedDeals, searchTerm, appliedFilters, hasAdvancedFilters])
 
   // Calcula os counts por categoria unificada (baseado nos deals filtrados)
   const unifiedCounts = useMemo(() => {
@@ -274,10 +485,10 @@ export function HubspotPage() {
                   Integração
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground mt-1">
-                  Hubspot
+                  HubSpot
                 </h1>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  Visualize os deals do Hubspot CRM por status
+                  Visualize os negócios do HubSpot CRM por status.
                 </p>
               </div>
             </div>
@@ -301,7 +512,7 @@ export function HubspotPage() {
                       Legenda de Pipelines
                     </DialogTitle>
                     <DialogDescription>
-                      Identificação visual dos pipelines do Hubspot CRM
+                      Identificação visual dos pipelines do HubSpot CRM.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4">
@@ -341,27 +552,36 @@ export function HubspotPage() {
                   </>
                 )}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                disabled={isFetching}
-                className="shrink-0"
-              >
-                <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
-                Atualizar
-              </Button>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => refetch()}
+                      disabled={isFetching}
+                      className="shrink-0"
+                    >
+                      <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
+                      Atualizar
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Última atualização: {lastUpdatedLabel}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
 
           {/* Campo de Busca */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Buscar por nome do deal..."
-                value={searchInput}
+                <Input
+                  type="text"
+                  placeholder="Buscar por nome do negócio..."
+                  value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -383,6 +603,28 @@ export function HubspotPage() {
               )}
             </div>
             <Button
+              variant="outline"
+              onClick={openFiltersModal}
+              className="shrink-0"
+            >
+              <SlidersHorizontal className="h-4 w-4 mr-2" />
+              Filtros
+              {activeFiltersCount > 0 && (
+                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </Button>
+            {hasAdvancedFilters && (
+              <Button
+                variant="ghost"
+                onClick={clearAppliedFilters}
+                className="shrink-0"
+              >
+                Limpar filtros
+              </Button>
+            )}
+            <Button
               onClick={() => setSearchTerm(searchInput)}
               className="shrink-0"
             >
@@ -393,12 +635,188 @@ export function HubspotPage() {
         </div>
       </div>
 
+      <Dialog
+        open={filtersOpen}
+        onOpenChange={(open) => {
+          setFiltersOpen(open)
+          if (open) {
+            setFilterDraft({
+              ...appliedFilters,
+              pipelines: [...appliedFilters.pipelines],
+              categories: [...appliedFilters.categories],
+            })
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <SlidersHorizontal className="h-5 w-5 text-primary" />
+              Filtros avançados
+            </DialogTitle>
+            <DialogDescription>
+              Filtre por pipeline, status e campos do negócio, empresa e endereço.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Pipelines</p>
+              <div className="flex flex-wrap gap-2">
+                {pipelineOptions.map((pipelineName) => {
+                  const selected = filterDraft.pipelines.includes(pipelineName)
+                  return (
+                    <Button
+                      key={pipelineName}
+                      type="button"
+                      size="sm"
+                      variant={selected ? "default" : "outline"}
+                      onClick={() => toggleDraftPipeline(pipelineName)}
+                    >
+                      {pipelineName}
+                    </Button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Categorias de status</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(UNIFIED_STAGE_CONFIG).map(([category, config]) => {
+                  const selected = filterDraft.categories.includes(category)
+                  return (
+                    <Button
+                      key={category}
+                      type="button"
+                      size="sm"
+                      variant={selected ? "default" : "outline"}
+                      onClick={() => toggleDraftCategory(category)}
+                    >
+                      {config.label}
+                    </Button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Nome do negócio</label>
+                <Input value={filterDraft.dealName} onChange={(e) => updateDraftField('dealName', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">ID do Deal</label>
+                <Input value={filterDraft.dealId} onChange={(e) => updateDraftField('dealId', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">ID do Pipeline</label>
+                <Input value={filterDraft.pipelineId} onChange={(e) => updateDraftField('pipelineId', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Empresa</label>
+                <Input value={filterDraft.companyName} onChange={(e) => updateDraftField('companyName', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">CNPJ</label>
+                <Input value={filterDraft.cnpj} onChange={(e) => updateDraftField('cnpj', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">CEP</label>
+                <Input value={filterDraft.cep} onChange={(e) => updateDraftField('cep', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Cidade</label>
+                <Input value={filterDraft.city} onChange={(e) => updateDraftField('city', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Estado</label>
+                <Input value={filterDraft.state} onChange={(e) => updateDraftField('state', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Endereço</label>
+                <Input value={filterDraft.address} onChange={(e) => updateDraftField('address', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Place ID</label>
+                <Input value={filterDraft.placeId} onChange={(e) => updateDraftField('placeId', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Criado a partir de</label>
+                <Input type="date" value={filterDraft.createdFrom} onChange={(e) => updateDraftField('createdFrom', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Criado até</label>
+                <Input type="date" value={filterDraft.createdTo} onChange={(e) => updateDraftField('createdTo', e.target.value)} />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={resetDraftFilters}>
+                Limpar
+              </Button>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Cancelar
+                </Button>
+              </DialogClose>
+              <Button type="button" onClick={applyFilters}>
+                Aplicar filtros
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Loading State */}
       {isLoading && (
-        <div className="rounded-xl bg-card border border-border shadow-sm p-12">
-          <div className="flex flex-col items-center justify-center gap-4">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            <p className="text-muted-foreground">Carregando deals do Hubspot...</p>
+        <div className="rounded-xl bg-card border border-border shadow-sm p-6 sm:p-8">
+          <div className="mx-auto max-w-2xl space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg border border-primary/20 bg-primary/10 p-2">
+                <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground sm:text-base">
+                  Sincronizando dados do HubSpot
+                </p>
+                <p className="text-xs text-muted-foreground sm:text-sm">
+                  {currentLoadingStepLabel}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {HUBSPOT_LOADING_STEPS.map((step, index) => {
+                const status =
+                  index < activeLoadingStepIndex
+                    ? 'done'
+                    : index === activeLoadingStepIndex
+                      ? 'current'
+                      : 'pending'
+
+                return (
+                  <div
+                    key={step.label}
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg border px-3 py-2 text-xs sm:text-sm transition-colors',
+                      status === 'done' && 'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300',
+                      status === 'current' && 'border-primary/40 bg-primary/5 text-foreground',
+                      status === 'pending' && 'border-border bg-background text-muted-foreground'
+                    )}
+                  >
+                    {status === 'done' ? (
+                      <Check className="h-4 w-4 shrink-0" />
+                    ) : status === 'current' ? (
+                      <RefreshCw className="h-4 w-4 shrink-0 animate-spin" />
+                    ) : (
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground/50" />
+                    )}
+                    <span>{step.label}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -460,7 +878,7 @@ export function HubspotPage() {
                     {categoryDeals.length === 0 ? (
                       <div className="flex items-center gap-3 px-3 py-6 text-sm text-muted-foreground justify-center">
                         <Icon className={cn("h-4 w-4", config.color, "opacity-50")} />
-                        Nenhum deal nesta categoria
+                        Nenhum negócio nesta categoria
                       </div>
                     ) : (
                       <>
@@ -520,7 +938,7 @@ export function HubspotPage() {
                               className="w-full text-xs justify-start"
                             >
                               <ChevronDown className="h-3 w-3 mr-2" />
-                              Carregar mais {allCategoryDeals.length - visibleLimit} deals
+                              Carregar mais {allCategoryDeals.length - visibleLimit} negócios
                             </Button>
                           </div>
                         )}
@@ -553,13 +971,13 @@ export function HubspotPage() {
                         <StageIcon className={cn("h-5 w-5", unifiedConfig?.color)} />
                       </div>
                     )}
-                    <span className="truncate">{selectedDeal.dealname || 'Deal sem nome'}</span>
+                    <span className="truncate">{selectedDeal.dealname || 'Negócio sem nome'}</span>
                   </DialogTitle>
                   <DialogDescription className="flex items-center gap-2 mt-2">
                     {PipelineIcon && pipelineConfig && (
-                      <div className={cn("p-1 rounded shrink-0", pipelineConfig.bgColor)}>
+                      <span className={cn("inline-flex p-1 rounded shrink-0", pipelineConfig.bgColor)}>
                         <PipelineIcon className={cn("h-3.5 w-3.5", pipelineConfig.color)} />
-                      </div>
+                      </span>
                     )}
                     <span>{selectedDeal.pipelineName || 'Pipeline desconhecido'}</span>
                     <span className="text-muted-foreground">•</span>
@@ -576,7 +994,7 @@ export function HubspotPage() {
                     </h4>
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                       <div>
-                        <p className="text-xs text-muted-foreground">Deal ID (HubSpot)</p>
+                        <p className="text-xs text-muted-foreground">ID do Deal (HubSpot)</p>
                         <p className="text-sm font-medium">{selectedDeal.dealId || '-'}</p>
                       </div>
                       {selectedDeal.dealId && (

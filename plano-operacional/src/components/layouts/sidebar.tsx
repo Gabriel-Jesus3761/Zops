@@ -259,7 +259,7 @@ const DesktopSidebar = memo(function DesktopSidebar({
       {/* Logo */}
       <div className="flex h-16 items-center border-b border-border px-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0050C3] flex-shrink-0">
+          <div className="App-logo flex h-8 w-8 items-center justify-center rounded-lg bg-[#0050C3] flex-shrink-0">
             <span className="text-sm font-bold text-white">Z</span>
           </div>
           {isExpanded && (
@@ -325,7 +325,7 @@ const MobileSidebar = memo(function MobileSidebar({
       {/* Logo */}
       <div className="flex h-16 items-center border-b border-border px-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0050C3]">
+          <div className="App-logo flex h-8 w-8 items-center justify-center rounded-lg bg-[#0050C3]">
             <span className="text-sm font-bold text-white">Z</span>
           </div>
           <span className="font-semibold text-foreground">Z.Ops</span>
