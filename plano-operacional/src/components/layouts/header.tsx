@@ -19,9 +19,10 @@ interface HeaderProps {
   onCollapsedClick: () => void
   collapsed: boolean
   isMenuOpen?: boolean
+  isSettingsPage?: boolean
 }
 
-function HeaderComponent({ onMenuClick, onCollapsedClick, isMenuOpen = false }: HeaderProps) {
+function HeaderComponent({ onMenuClick, onCollapsedClick, isMenuOpen = false, isSettingsPage = false }: HeaderProps) {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -60,9 +61,11 @@ function HeaderComponent({ onMenuClick, onCollapsedClick, isMenuOpen = false }: 
         <button
           onClick={onCollapsedClick}
           className="hidden items-center justify-center rounded-lg p-2 text-foreground/70 hover:bg-accent transition-colors duration-150 lg:flex"
-          aria-label={isMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+          aria-label={isSettingsPage ? 'Abrir navegação principal' : isMenuOpen ? 'Fechar menu' : 'Abrir menu'}
         >
-          {isMenuOpen ? (
+          {isSettingsPage ? (
+            <Menu className="h-5 w-5" />
+          ) : isMenuOpen ? (
             <ListX className="h-5 w-5" />
           ) : (
             <Menu className="h-5 w-5" />

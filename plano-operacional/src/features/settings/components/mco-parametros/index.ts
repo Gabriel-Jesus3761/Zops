@@ -1,0 +1,8 @@
+export { ManageClusters } from './manage-clusters'
+export { ManageFiliais } from './manage-filiais'
+export { ManageCargos } from './manage-cargos'
+export { ManageModalidades } from './manage-modalidades'
+export { ManageJornadas } from './manage-jornadas'
+export { ManageDimensionamento } from './manage-dimensionamento'
+export { ManageParametrosGerais } from './manage-parametros-gerais'
+export { ManageEtapaTimes } from './manage-etapa-times'

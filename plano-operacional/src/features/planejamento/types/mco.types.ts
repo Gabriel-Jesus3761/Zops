@@ -1,3 +1,5 @@
+import type { LocalDetailed } from '../services/geocoding.service'
+
 export interface MCO {
   id: string
   codigo: string
@@ -18,6 +20,14 @@ export interface MCO {
   porte?: string
   tipo_atendimento?: 'atendimento_matriz' | 'filial' | 'filial_interior'
   num_sessoes?: number
+  // Dados operacionais
+  modalidade_id?: string
+  time_tecnico?: boolean
+  logistica?: boolean
+  cliente_fornece_alimentacao?: boolean
+  cliente_fornece_hospedagem?: boolean
+  // Breakdown de custos
+  breakdown_custos?: any
 }
 
 // Tipos para o Wizard de criação de MCO
@@ -32,8 +42,7 @@ export interface MCOEventoData {
   cliente: string
   clienteNome?: string
   nomeEvento: string
-  dataInicial: Date | null
-  dataFinal: Date | null
+  datasEvento: Date[]
   sessoes: Sessao[]
   faturamentoEstimado: string
   publicoEstimado: string
@@ -41,6 +50,8 @@ export interface MCOEventoData {
   localEventoNome?: string
   uf: string
   cidade: string
+  /** Dados enriquecidos do local (Nominatim + Overpass) — salvos em Locais de Projetos ao criar MCO */
+  localEventoDetalhes?: LocalDetailed
 }
 
 export interface MCOOperacionalData {

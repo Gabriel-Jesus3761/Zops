@@ -9,19 +9,19 @@ import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 
-import { MCOStepIndicator } from '../components/mco-step-indicator'
 import { MCOEventoStep } from '../components/mco-evento-step'
 import { MCOOperacionalStep } from '../components/mco-operacional-step'
 import { MCOResumoStep } from '../components/mco-resumo-step'
 import { mcoService } from '../services/mco.service'
+import { mcoCalculatorService } from '../services/mco-calculator.service'
+import { locaisEventosService } from '@/features/settings/services/locais-eventos.service'
 import type { WizardStep, MCOEventoData, MCOOperacionalData } from '../types/mco.types'
 
 const initialEventoData: MCOEventoData = {
   cliente: "",
   clienteNome: "",
   nomeEvento: "",
-  dataInicial: null,
-  dataFinal: null,
+  datasEvento: [],
   sessoes: [],
   faturamentoEstimado: "",
   publicoEstimado: "",
@@ -84,8 +84,8 @@ export function MCOWizardPage() {
       toast.error('Informe o nome do evento')
       return false
     }
-    if (!eventoData.dataInicial || !eventoData.dataFinal) {
-      toast.error('Informe o período do evento')
+    if (!eventoData.datasEvento || eventoData.datasEvento.length === 0) {
+      toast.error('Selecione os dias do evento')
       return false
     }
 
@@ -162,6 +162,14 @@ export function MCOWizardPage() {
     navigate('/planejamento/mcos')
   }
 
+  const handleClearDraft = () => {
+    localStorage.removeItem('mco-rascunho-evento')
+    setEventoData(initialEventoData)
+    setOperacionalData(initialOperacionalData)
+    setCurrentStep('evento')
+    toast.success('Rascunho limpo')
+  }
+
   const simulateProgress = async () => {
     // Step 1: Validando
     setCurrentCreationStep(0)
@@ -203,23 +211,77 @@ export function MCOWizardPage() {
       const now = new Date()
       const codigo = `MCO-${String(now.getTime()).slice(-4).padStart(4, '0')}`
 
+      // Derivar data_inicial e data_final do array de datas selecionadas
+      const sortedDates = [...eventoData.datasEvento].sort((a, b) => a.getTime() - b.getTime())
+      const dataInicial = sortedDates[0]
+      const dataFinal = sortedDates[sortedDates.length - 1]
+
+      // Calcular custos operacionais
+      const calculationResult = await mcoCalculatorService.calcular(eventoData, operacionalData)
+
       // Criar MCO via service
       await mcoService.criarMCO({
         codigo,
         nome_evento: eventoData.nomeEvento,
         cidade: eventoData.cidade,
         uf: eventoData.uf,
-        data_inicial: eventoData.dataInicial ? format(eventoData.dataInicial, 'yyyy-MM-dd') : '',
-        data_final: eventoData.dataFinal ? format(eventoData.dataFinal, 'yyyy-MM-dd') : '',
+        data_inicial: dataInicial ? format(dataInicial, 'yyyy-MM-dd') : '',
+        data_final: dataFinal ? format(dataFinal, 'yyyy-MM-dd') : '',
         status: 'pendente',
         faturamento_estimado: eventoData.faturamentoEstimado,
         publico_estimado: eventoData.publicoEstimado,
-        custo_operacional_efetivo: 0,
-        cot: 0,
+        custo_operacional_efetivo: calculationResult.custo_operacional_efetivo,
+        cot: calculationResult.cot,
         cliente_id: eventoData.cliente || null,
         cliente_nome: eventoData.clienteNome,
         num_sessoes: eventoData.sessoes.length,
+        // Dados operacionais
+        modalidade_id: operacionalData.modalidadeId,
+        time_tecnico: operacionalData.timeTecnico,
+        logistica: operacionalData.logistica,
+        cliente_fornece_alimentacao: operacionalData.clienteForneceAlimentacaoGoLive,
+        cliente_fornece_hospedagem: operacionalData.clienteForneceHospedagemAlpha,
+        // Breakdown de custos
+        breakdown_custos: calculationResult.breakdown,
       })
+
+      // Salvar local em Locais de Projetos (se tiver detalhes enriquecidos)
+      if (eventoData.localEventoDetalhes) {
+        const detalhes = eventoData.localEventoDetalhes
+        try {
+          // Verificar se o local já existe (nome + cidade + uf)
+          const locaisExistentes = await locaisEventosService.getLocais()
+          const jaExiste = locaisExistentes.some(
+            (l) =>
+              l.nome.toLowerCase() === detalhes.nome.toLowerCase() &&
+              l.cidade.toLowerCase() === detalhes.cidade.toLowerCase() &&
+              l.uf.toLowerCase() === detalhes.uf.toLowerCase()
+          )
+
+          if (!jaExiste) {
+            await locaisEventosService.createLocal({
+              nome: detalhes.nome,
+              apelido: undefined,
+              tipo: detalhes.tipo,
+              cidade: detalhes.cidade,
+              uf: detalhes.uf,
+              cep: detalhes.cep,
+              logradouro: detalhes.logradouro,
+              numero: detalhes.numero,
+              bairro: detalhes.bairro,
+              capacidade_maxima: detalhes.capacidade_maxima,
+              tem_cobertura: detalhes.tem_cobertura ?? false,
+              tem_ar_condicionado: detalhes.tem_ar_condicionado ?? false,
+              tem_estacionamento: detalhes.tem_estacionamento ?? false,
+              tem_acessibilidade: detalhes.tem_acessibilidade ?? false,
+              ativo: true,
+            })
+          }
+        } catch (localError) {
+          // Log mas não bloqueia — MCO já foi criada
+          console.error('Erro ao salvar local:', localError)
+        }
+      }
 
       // Aguarda animação terminar
       await progressPromise
@@ -257,43 +319,37 @@ export function MCOWizardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header Card */}
-      <Card className="border-0 shadow-lg overflow-hidden">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/25">
-                <Sparkles className="h-6 w-6" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl font-bold">Nova MCO</CardTitle>
-                <CardDescription className="mt-1">
-                  Matriz de Custo Operacional
-                </CardDescription>
-              </div>
-            </div>
+      {/* Content Card */}
+      <Card className="border shadow-sm">
+        <CardHeader className="border-b relative">
+          <div className="absolute right-4 top-4 flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearDraft}
+              className="text-foreground hover:text-destructive hover:border-destructive"
+              style={{ cursor: 'pointer' }}
+            >
+              Limpar Rascunho
+            </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={handleCancel}
-              className="text-muted-foreground hover:text-foreground"
+              style={{ cursor: 'pointer' }}
             >
               <X className="h-5 w-5" />
             </Button>
           </div>
-        </CardHeader>
-
-        <CardContent className="pt-0">
-          {/* Step Indicator */}
-          <MCOStepIndicator currentStep={currentStep} />
-        </CardContent>
-      </Card>
-
-      {/* Content Card */}
-      <Card className="border shadow-sm">
-        <CardHeader className="border-b bg-muted/30">
-          <CardTitle className="text-lg">{getStepTitle()}</CardTitle>
-          <CardDescription>{getStepDescription()}</CardDescription>
+          <div className="text-center">
+            <CardTitle className="flex items-center justify-center gap-3 text-3xl font-bold tracking-tight text-foreground">
+              <FileText className="h-7 w-7 text-foreground" />
+              Nova MCO
+            </CardTitle>
+            <CardDescription className="text-base mt-2">
+              Matriz de Custo Operacional
+            </CardDescription>
+          </div>
         </CardHeader>
 
         <CardContent className="pt-6">

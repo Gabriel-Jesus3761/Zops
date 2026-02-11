@@ -38,12 +38,20 @@ export function MCOEditPage() {
   useEffect(() => {
     if (mco && !eventoData) {
       // Converter dados do MCO para o formato do wizard
+      // Reconstruir datasEvento a partir de data_inicial e data_final
+      const datasEvento: Date[] = []
+      if (mco.data_inicial) {
+        datasEvento.push(new Date(mco.data_inicial))
+      }
+      if (mco.data_final && mco.data_final !== mco.data_inicial) {
+        datasEvento.push(new Date(mco.data_final))
+      }
+
       setEventoData({
         cliente: mco.cliente_id || '',
         clienteNome: mco.cliente_nome || '',
         nomeEvento: mco.nome_evento,
-        dataInicial: mco.data_inicial ? new Date(mco.data_inicial) : null,
-        dataFinal: mco.data_final ? new Date(mco.data_final) : null,
+        datasEvento,
         sessoes: [], // TODO: carregar sessões se disponíveis
         faturamentoEstimado: mco.faturamento_estimado,
         publicoEstimado: mco.publico_estimado || '',
@@ -84,8 +92,8 @@ export function MCOEditPage() {
       toast.error('Informe o nome do evento')
       return false
     }
-    if (!eventoData.dataInicial || !eventoData.dataFinal) {
-      toast.error('Informe o período do evento')
+    if (!eventoData.datasEvento || eventoData.datasEvento.length === 0) {
+      toast.error('Selecione os dias do evento')
       return false
     }
 

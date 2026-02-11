@@ -114,7 +114,15 @@ export const router = createBrowserRouter([
         element: <SettingsPage />,
         children: [
           {
+            index: true,
+            element: <Navigate to="/configuracoes/geral" replace />,
+          },
+          {
             path: 'geral',
+            element: null,
+          },
+          {
+            path: 'aparencia',
             element: null,
           },
           {
@@ -140,6 +148,83 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            path: 'clientes',
+            element: null,
+          },
+          {
+            path: 'locais-eventos',
+            element: null,
+          },
+          {
+            path: 'etapas-projeto',
+            element: null,
+          },
+          // MCO Parâmetros - rotas diretas (flatten)
+          {
+            path: 'clusters',
+            element: null,
+          },
+          {
+            path: 'filiais',
+            element: null,
+          },
+          {
+            path: 'cargos',
+            element: null,
+          },
+          {
+            path: 'modalidades',
+            element: null,
+          },
+          {
+            path: 'jornadas',
+            element: null,
+          },
+          {
+            path: 'parametros-diarias',
+            element: null,
+          },
+          {
+            path: 'ite-por-cluster',
+            element: null,
+          },
+          {
+            path: 'cargos-x-cluster',
+            element: null,
+          },
+          {
+            path: 'times-por-etapa',
+            element: null,
+          },
+          {
+            path: 'parametros',
+            element: null,
+          },
+          // Alimentação
+          {
+            path: 'parametros-alimentacao',
+            element: null,
+          },
+          // Hospedagem
+          {
+            path: 'base-custo-hospedagem',
+            element: null,
+          },
+          {
+            path: 'matriz-hospedagem',
+            element: null,
+          },
+          // Transporte
+          {
+            path: 'parametros-transporte',
+            element: null,
+          },
+          // Frete
+          {
+            path: 'parametros-frete',
+            element: null,
+          },
+          {
             path: 'notificacoes',
             element: null,
           },
@@ -147,9 +232,46 @@ export const router = createBrowserRouter([
             path: 'seguranca',
             element: null,
           },
+          // Redirects de compatibilidade (rotas antigas)
           {
-            path: 'aparencia',
-            element: null,
+            path: 'mco-parametros',
+            element: <Navigate to="/configuracoes/clusters" replace />,
+          },
+          {
+            path: 'mco-parametros/clusters',
+            element: <Navigate to="/configuracoes/clusters" replace />,
+          },
+          {
+            path: 'mco-parametros/filiais',
+            element: <Navigate to="/configuracoes/filiais" replace />,
+          },
+          {
+            path: 'mco-parametros/cargos',
+            element: <Navigate to="/configuracoes/cargos" replace />,
+          },
+          {
+            path: 'mco-parametros/modalidades',
+            element: <Navigate to="/configuracoes/modalidades" replace />,
+          },
+          {
+            path: 'mco-parametros/jornadas',
+            element: <Navigate to="/configuracoes/jornadas" replace />,
+          },
+          {
+            path: 'mco-parametros/dimensionamento',
+            element: <Navigate to="/configuracoes/cargos-x-cluster" replace />,
+          },
+          {
+            path: 'dimensionamento',
+            element: <Navigate to="/configuracoes/cargos-x-cluster" replace />,
+          },
+          {
+            path: 'mco-parametros/parametros',
+            element: <Navigate to="/configuracoes/parametros" replace />,
+          },
+          {
+            path: 'diarias-go-live',
+            element: <Navigate to="/configuracoes/parametros-diarias" replace />,
           },
         ],
       },

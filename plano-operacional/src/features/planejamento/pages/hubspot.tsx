@@ -2,10 +2,8 @@ import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Cloud,
-  FileText,
   Handshake,
   Trophy,
-  FileCheck,
   RefreshCw,
   XCircle,
   ChevronDown,
@@ -35,7 +33,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog'
-import { hubspotService, type HubspotDeal, HUBSPOT_PIPELINES, DEAL_STAGES } from '../services/hubspot.service'
+import { hubspotService, type HubspotDeal, type HubspotProgressEvent, HUBSPOT_PIPELINES, DEAL_STAGES } from '../services/hubspot.service'
 import { Building, MapPin as MapPinIcon, Hash, Calendar, ExternalLink, Copy, Check } from 'lucide-react'
 
 // Mapeamento de stage IDs para categorias unificadas
@@ -121,6 +119,9 @@ const STAGE_TO_UNIFIED: Record<string, string> = {
   '249558235': 'lost',
   '178237509': 'lost',
   '1108176156': 'lost',
+
+  // ========== MX VENUES/EVENTS ==========
+  '760757291': 'leads', // MX Venues - ajuste a categoria se necessário
 }
 
 // Mapeamento de pipelines para ícones e cores
@@ -149,10 +150,10 @@ const UNIFIED_STAGE_CONFIG: Record<string, { icon: React.ElementType; color: str
 }
 
 const HUBSPOT_LOADING_STEPS = [
-  { label: 'Conectando com a API do HubSpot', target: 20 },
-  { label: 'Buscando pipelines e negócios', target: 45 },
-  { label: 'Classificando por estágios', target: 75 },
-  { label: 'Finalizando visualização', target: 95 },
+  { label: 'Conectando com a API do HubSpot' },
+  { label: 'Buscando pipelines e negócios' },
+  { label: 'Classificando por estágios' },
+  { label: 'Finalizando visualização' },
 ] as const
 
 type HubspotAdvancedFilters = {
@@ -160,7 +161,6 @@ type HubspotAdvancedFilters = {
   categories: string[]
   dealName: string
   dealId: string
-  pipelineId: string
   companyName: string
   cnpj: string
   cep: string
@@ -177,7 +177,6 @@ const createDefaultFilters = (): HubspotAdvancedFilters => ({
   categories: [],
   dealName: '',
   dealId: '',
-  pipelineId: '',
   companyName: '',
   cnpj: '',
   cep: '',
@@ -197,6 +196,8 @@ export function HubspotPage() {
   const [selectedDeal, setSelectedDeal] = useState<HubspotDeal | null>(null)
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [loadingProgress, setLoadingProgress] = useState(0)
+  const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [currentStepLabel, setCurrentStepLabel] = useState<string>(HUBSPOT_LOADING_STEPS[0].label)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [appliedFilters, setAppliedFilters] = useState<HubspotAdvancedFilters>(createDefaultFilters)
   const [filterDraft, setFilterDraft] = useState<HubspotAdvancedFilters>(createDefaultFilters)
@@ -222,9 +223,25 @@ export function HubspotPage() {
     }
   }
 
+  const handleProgress = (event: HubspotProgressEvent) => {
+    setLoadingProgress(event.progress)
+    setCurrentStepIndex(event.step)
+    setCurrentStepLabel(event.label)
+  }
+
   const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useQuery({
     queryKey: ['hubspot-deals'],
-    queryFn: () => hubspotService.getDealsGrouped(),
+    queryFn: () => {
+      // Reset progress state quando inicia nova busca
+      setLoadingProgress(0)
+      setCurrentStepIndex(0)
+      setCurrentStepLabel(HUBSPOT_LOADING_STEPS[0].label)
+
+      const { promise } = hubspotService.getDealsGroupedWithProgress({
+        onProgress: handleProgress,
+      })
+      return promise
+    },
     staleTime: 5 * 60 * 1000, // 5 minutos
   })
 
@@ -239,31 +256,13 @@ export function HubspotPage() {
     })
   }, [dataUpdatedAt])
 
+  // Limpa o progresso quando finaliza
   useEffect(() => {
-    if (!isLoading) {
-      setLoadingProgress(100)
+    if (!isLoading && !isFetching) {
       const cleanupTimer = setTimeout(() => setLoadingProgress(0), 250)
       return () => clearTimeout(cleanupTimer)
     }
-
-    setLoadingProgress(prev => (prev > 8 ? prev : 8))
-
-    const interval = setInterval(() => {
-      setLoadingProgress(prev => {
-        const increment = Math.random() * 7 + 3
-        return Math.min(prev + increment, 95)
-      })
-    }, 420)
-
-    return () => clearInterval(interval)
-  }, [isLoading])
-
-  const activeLoadingStepIndex = useMemo(() => {
-    const index = HUBSPOT_LOADING_STEPS.findIndex(step => loadingProgress < step.target)
-    return index === -1 ? HUBSPOT_LOADING_STEPS.length - 1 : index
-  }, [loadingProgress])
-
-  const currentLoadingStepLabel = HUBSPOT_LOADING_STEPS[activeLoadingStepIndex]?.label || HUBSPOT_LOADING_STEPS[HUBSPOT_LOADING_STEPS.length - 1].label
+  }, [isLoading, isFetching])
 
   const activeFiltersCount = useMemo(() => {
     let count = 0
@@ -271,7 +270,6 @@ export function HubspotPage() {
     if (appliedFilters.categories.length > 0) count += 1
     if (appliedFilters.dealName.trim()) count += 1
     if (appliedFilters.dealId.trim()) count += 1
-    if (appliedFilters.pipelineId.trim()) count += 1
     if (appliedFilters.companyName.trim()) count += 1
     if (appliedFilters.cnpj.trim()) count += 1
     if (appliedFilters.cep.trim()) count += 1
@@ -339,6 +337,15 @@ export function HubspotPage() {
     }))
   }
 
+  // Normaliza o nome do pipeline (converte ID para nome se necessário)
+  const normalizePipelineName = (pipelineName: string | null | undefined): string => {
+    if (!pipelineName) return ''
+    if (pipelineName in HUBSPOT_PIPELINES) {
+      return HUBSPOT_PIPELINES[pipelineName as keyof typeof HUBSPOT_PIPELINES]
+    }
+    return pipelineName
+  }
+
   // Agrupa os deals por categoria unificada
   const unifiedGroupedDeals = useMemo(() => {
     if (!data?.grouped) return {}
@@ -361,7 +368,7 @@ export function HubspotPage() {
   const pipelineOptions = useMemo(() => {
     const knownPipelines = Object.values(HUBSPOT_PIPELINES)
     const pipelinesFromDeals = Object.values(unifiedGroupedDeals)
-      .flatMap(deals => deals.map(deal => deal.pipelineName))
+      .flatMap(deals => deals.map(deal => normalizePipelineName(deal.pipelineName)))
       .filter(Boolean)
 
     return Array.from(new Set([...knownPipelines, ...pipelinesFromDeals]))
@@ -395,14 +402,13 @@ export function HubspotPage() {
       const filteredDeals = deals.filter(deal => {
         if (hasSearchTerm && !matchesText(deal.dealname, normalizedSearch)) return false
 
-        if (appliedFilters.pipelines.length > 0 && !appliedFilters.pipelines.includes(deal.pipelineName || '')) return false
+        if (appliedFilters.pipelines.length > 0 && !appliedFilters.pipelines.includes(normalizePipelineName(deal.pipelineName))) return false
 
         const dealCategory = STAGE_TO_UNIFIED[deal.dealstage]
         if (appliedFilters.categories.length > 0 && (!dealCategory || !appliedFilters.categories.includes(dealCategory))) return false
 
         if (!matchesText(deal.dealname, appliedFilters.dealName)) return false
         if (!matchesText(deal.dealId, appliedFilters.dealId)) return false
-        if (!matchesText(deal.pipeline, appliedFilters.pipelineId)) return false
         if (!matchesText(deal.nomeEmpresa, appliedFilters.companyName)) return false
         if (!matchesText(deal.cnpj, appliedFilters.cnpj)) return false
         if (!matchesText(deal.endereco?.cep, appliedFilters.cep)) return false
@@ -457,7 +463,7 @@ export function HubspotPage() {
     }))
   }
 
-  const isExpanded = (category: string) => expandedGroups[category] ?? true
+  const isExpanded = (category: string) => expandedGroups[category] ?? false
 
   const allExpanded = Object.keys(UNIFIED_STAGE_CONFIG).every(category => isExpanded(category))
 
@@ -710,10 +716,6 @@ export function HubspotPage() {
                 <Input value={filterDraft.dealId} onChange={(e) => updateDraftField('dealId', e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">ID do Pipeline</label>
-                <Input value={filterDraft.pipelineId} onChange={(e) => updateDraftField('pipelineId', e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Empresa</label>
                 <Input value={filterDraft.companyName} onChange={(e) => updateDraftField('companyName', e.target.value)} />
               </div>
@@ -776,22 +778,33 @@ export function HubspotPage() {
               <div className="rounded-lg border border-primary/20 bg-primary/10 p-2">
                 <RefreshCw className="h-5 w-5 animate-spin text-primary" />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground sm:text-base">
-                  Sincronizando dados do HubSpot
-                </p>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-foreground sm:text-base">
+                    Sincronizando dados do HubSpot
+                  </p>
+                  <span className="text-xs font-medium text-primary">{loadingProgress}%</span>
+                </div>
                 <p className="text-xs text-muted-foreground sm:text-sm">
-                  {currentLoadingStepLabel}
+                  {currentStepLabel}
                 </p>
               </div>
+            </div>
+
+            {/* Barra de progresso */}
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-300 ease-out"
+                style={{ width: `${loadingProgress}%` }}
+              />
             </div>
 
             <div className="space-y-2">
               {HUBSPOT_LOADING_STEPS.map((step, index) => {
                 const status =
-                  index < activeLoadingStepIndex
+                  index < currentStepIndex
                     ? 'done'
-                    : index === activeLoadingStepIndex
+                    : index === currentStepIndex
                       ? 'current'
                       : 'pending'
 
@@ -883,7 +896,8 @@ export function HubspotPage() {
                     ) : (
                       <>
                         {categoryDeals.map((deal: HubspotDeal, dealIndex: number) => {
-                          const pipelineConfig = deal.pipelineName ? PIPELINE_CONFIG[deal.pipelineName] : null
+                          const normalizedPipeline = normalizePipelineName(deal.pipelineName)
+                          const pipelineConfig = normalizedPipeline ? PIPELINE_CONFIG[normalizedPipeline] : null
                           const PipelineIcon = pipelineConfig?.icon
 
                           return (
@@ -907,7 +921,7 @@ export function HubspotPage() {
                               </span>
 
                               {/* Pipeline Icon com Tooltip */}
-                              {deal.pipelineName && pipelineConfig && PipelineIcon && (
+                              {normalizedPipeline && pipelineConfig && PipelineIcon && (
                                 <TooltipProvider delayDuration={0}>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -916,7 +930,7 @@ export function HubspotPage() {
                                       </div>
                                     </TooltipTrigger>
                                     <TooltipContent side="left">
-                                      <p className="text-xs font-medium">{deal.pipelineName}</p>
+                                      <p className="text-xs font-medium">{normalizedPipeline}</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -956,7 +970,8 @@ export function HubspotPage() {
       <Dialog open={!!selectedDeal} onOpenChange={(open) => !open && setSelectedDeal(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           {selectedDeal && (() => {
-            const pipelineConfig = selectedDeal.pipelineName ? PIPELINE_CONFIG[selectedDeal.pipelineName] : null
+            const normalizedPipeline = normalizePipelineName(selectedDeal.pipelineName)
+            const pipelineConfig = normalizedPipeline ? PIPELINE_CONFIG[normalizedPipeline] : null
             const PipelineIcon = pipelineConfig?.icon
             const stageConfig = STAGE_TO_UNIFIED[selectedDeal.dealstage]
             const unifiedConfig = stageConfig ? UNIFIED_STAGE_CONFIG[stageConfig] : null
@@ -979,7 +994,7 @@ export function HubspotPage() {
                         <PipelineIcon className={cn("h-3.5 w-3.5", pipelineConfig.color)} />
                       </span>
                     )}
-                    <span>{selectedDeal.pipelineName || 'Pipeline desconhecido'}</span>
+                    <span>{normalizedPipeline || 'Pipeline desconhecido'}</span>
                     <span className="text-muted-foreground">•</span>
                     <span>{unifiedConfig?.label || DEAL_STAGES[selectedDeal.dealstage as keyof typeof DEAL_STAGES] || selectedDeal.dealstage}</span>
                   </DialogDescription>

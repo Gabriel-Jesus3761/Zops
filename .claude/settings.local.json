@@ -32,7 +32,9 @@
       "Bash(test:*)",
       "Bash(pkill:*)",
       "Bash(lsof:*)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(echo:*)",
+      "Bash(python3:*)"
     ]
   }
 }

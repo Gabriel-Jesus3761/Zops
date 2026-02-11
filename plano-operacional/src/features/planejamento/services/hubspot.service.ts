@@ -76,6 +76,8 @@ export const DEAL_STAGES = {
   '1108065072': 'Commit',
   '1108065073': 'Deal Won',
   '1108176156': 'Deal Lost',
+  // Pipeline MX Venues/Events
+  '760757291': 'MX Venues',
 } as const
 
 export type DealStageId = keyof typeof DEAL_STAGES
@@ -111,6 +113,7 @@ export const HUBSPOT_PIPELINES = {
   '760035200': 'EUR Venues',
   '147326995': 'EUR Events',
   '97398362': 'MX Venues/Events',
+  '760757291': 'MX Venues/Events',
   '153488669': 'Teste',
   '824388460': 'Inside Parcerias',
 } as const
@@ -120,6 +123,18 @@ interface GetHubspotDealsResponse {
   total: number
   counts: Record<string, number>
   grouped: Record<string, HubspotDeal[]>
+}
+
+export interface HubspotProgressEvent {
+  step: number
+  label: string
+  progress: number
+}
+
+export interface HubspotStreamCallbacks {
+  onProgress?: (event: HubspotProgressEvent) => void
+  onComplete?: (data: GetHubspotDealsResponse) => void
+  onError?: (error: Error) => void
 }
 
 /**
@@ -176,5 +191,97 @@ export const hubspotService = {
       console.error('Erro ao listar deals do Hubspot:', error)
       throw new Error('Falha ao carregar deals do Hubspot')
     }
+  },
+
+  /**
+   * Busca deals com progresso em tempo real via Server-Sent Events (SSE)
+   * Retorna uma Promise que resolve com os dados e permite acompanhar o progresso
+   */
+  getDealsGroupedWithProgress(callbacks: HubspotStreamCallbacks): { promise: Promise<GetHubspotDealsResponse>; abort: () => void } {
+    const url = `${CLOUD_FUNCTIONS_BASE}/getHubspotDealsStream`
+    let eventSource: EventSource | null = null
+    let aborted = false
+
+    const promise = new Promise<GetHubspotDealsResponse>((resolve, reject) => {
+      console.log('Iniciando busca de deals do Hubspot com SSE...')
+
+      eventSource = new EventSource(url)
+
+      const timeoutId = setTimeout(() => {
+        if (eventSource) {
+          eventSource.close()
+          reject(new Error('Timeout ao carregar deals do Hubspot. Tente novamente.'))
+        }
+      }, 180000) // 3 minutos
+
+      eventSource.addEventListener('progress', (event) => {
+        if (aborted) return
+        try {
+          const data = JSON.parse(event.data) as HubspotProgressEvent
+          console.log('SSE Progress:', data)
+          callbacks.onProgress?.(data)
+        } catch (e) {
+          console.error('Erro ao parsear evento de progresso:', e)
+        }
+      })
+
+      eventSource.addEventListener('complete', (event) => {
+        clearTimeout(timeoutId)
+        if (eventSource) eventSource.close()
+        if (aborted) return
+
+        try {
+          const data = JSON.parse(event.data) as GetHubspotDealsResponse
+          console.log('SSE Complete - total:', data.total)
+          callbacks.onComplete?.(data)
+          resolve(data)
+        } catch (e) {
+          console.error('Erro ao parsear evento complete:', e)
+          reject(new Error('Erro ao processar resposta do servidor'))
+        }
+      })
+
+      eventSource.addEventListener('error', (event) => {
+        clearTimeout(timeoutId)
+        if (eventSource) eventSource.close()
+        if (aborted) return
+
+        // Tenta extrair mensagem de erro se disponível
+        let errorMessage = 'Falha ao carregar deals do Hubspot'
+        if (event instanceof MessageEvent && event.data) {
+          try {
+            const errorData = JSON.parse(event.data)
+            errorMessage = errorData.error || errorMessage
+          } catch {
+            // Ignora erro de parse
+          }
+        }
+
+        const error = new Error(errorMessage)
+        console.error('SSE Error:', error)
+        callbacks.onError?.(error)
+        reject(error)
+      })
+
+      eventSource.onerror = () => {
+        clearTimeout(timeoutId)
+        if (eventSource) eventSource.close()
+        if (aborted) return
+
+        const error = new Error('Conexão perdida com o servidor')
+        callbacks.onError?.(error)
+        reject(error)
+      }
+    })
+
+    const abort = () => {
+      aborted = true
+      if (eventSource) {
+        eventSource.close()
+        eventSource = null
+      }
+    }
+
+    return { promise, abort }
   },
 }
