@@ -14,6 +14,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "preview": "vite preview",
+    "deploy": "npm run build && echo 'Build completo! Faça push para a branch main para deploy automático.'",
     "i18n:extract": "npx tsx scripts/extract-strings.ts",
     "i18n:translate": "npx tsx scripts/translate.ts"
   },
