@@ -46,7 +46,7 @@ export function AtivoSerializadoForm() {
   const [prefixoNaoReconhecido, setPrefixoNaoReconhecido] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const { detectPattern, addPattern, customOptions, addCustomOption, reloadCustomOptions, loading: patternsLoading } = useSerialPatterns()
+  const { detectPattern, addPattern, customOptions, addCustomOption, reloadCustomOptions } = useSerialPatterns()
 
   // Normalizar serial: remove espaços e coloca em MAIÚSCULAS
   const normalizarSerial = (serial: string): string => {
@@ -75,7 +75,6 @@ export function AtivoSerializadoForm() {
     }
 
     const novosSeriais: ProcessedSerial[] = []
-    let sucessos = 0
     let erros = 0
     let semPadrao = 0
 

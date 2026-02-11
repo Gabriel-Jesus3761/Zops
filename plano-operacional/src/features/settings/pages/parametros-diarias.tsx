@@ -22,7 +22,6 @@ import {
   jornadasService,
   cargoJornadaCategoriaService
 } from '../services/mco-parametros.service'
-import type { Cargo, CategoriaRemuneracao } from '../types/mco-parametros'
 import { toast } from 'sonner'
 
 const ICON_MAP = {

@@ -799,10 +799,10 @@ export const mcoSeedService = {
 
   async seedJornadas(): Promise<void> {
     const jornadas: JornadaFormData[] = [
-      { nome: 'Diurna', hora_inicio: '08:00', hora_fim: '18:00', adicional_noturno: false },
-      { nome: 'Vespertina', hora_inicio: '14:00', hora_fim: '22:00', adicional_noturno: true },
-      { nome: 'Noturna', hora_inicio: '18:00', hora_fim: '02:00', adicional_noturno: true },
-      { nome: 'Madrugada', hora_inicio: '22:00', hora_fim: '06:00', adicional_noturno: true },
+      { nome: 'Diurna', hora_inicio: '08:00', hora_fim: '18:00' },
+      { nome: 'Vespertina', hora_inicio: '14:00', hora_fim: '22:00' },
+      { nome: 'Noturna', hora_inicio: '18:00', hora_fim: '02:00' },
+      { nome: 'Madrugada', hora_inicio: '22:00', hora_fim: '06:00' },
     ]
 
     for (const jornada of jornadas) {

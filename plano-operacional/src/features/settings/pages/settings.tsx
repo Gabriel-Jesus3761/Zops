@@ -25,7 +25,6 @@ import {
   UtensilsCrossed,
   Wrench,
   X,
-  Zap,
   Package,
   TableProperties,
 } from 'lucide-react'

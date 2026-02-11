@@ -145,9 +145,9 @@ class MCOCalculatorService {
   }
 
   private calcularLogistica(
-    eventoData: MCOEventoData,
+    _eventoData: MCOEventoData,
     operacionalData: MCOOperacionalData,
-    cluster: Cluster
+    _cluster: Cluster
   ): CustoBreakdown['logistica'] {
     if (!operacionalData.logistica) {
       return { frete: 0, equipamentos: 0, total: 0 }

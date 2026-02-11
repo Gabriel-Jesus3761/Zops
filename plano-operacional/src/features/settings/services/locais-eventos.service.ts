@@ -230,7 +230,7 @@ export const locaisEventosService = {
     }
   },
 
-  async verificarMCOsVinculadas(localId: string): Promise<MCOVinculada[]> {
+  async verificarMCOsVinculadas(_localId: string): Promise<MCOVinculada[]> {
     try {
       // TODO: Implementar busca de MCOs vinculadas quando necessário
       // Por enquanto retorna array vazio

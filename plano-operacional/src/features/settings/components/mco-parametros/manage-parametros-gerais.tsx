@@ -21,13 +21,6 @@ import { parametrosGeraisService, mcoSeedService } from '../../services/mco-para
 import type { ParametrosGeraisMCOFormData } from '../../types/mco-parametros'
 import { toast } from 'sonner'
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value)
-}
-
 export function ManageParametrosGerais() {
   const [formData, setFormData] = useState<ParametrosGeraisMCOFormData>({
     max_tecnicos_por_lider: 8,

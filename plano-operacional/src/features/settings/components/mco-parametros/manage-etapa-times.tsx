@@ -19,7 +19,6 @@ import {
   cargoTimesService,
   categoriasRemuneracaoService,
 } from '../../services/mco-parametros.service'
-import type { EtapaTimeConfig, CargoTimeConfig, CategoriaRemuneracao } from '../../types/mco-parametros'
 import { toast } from 'sonner'
 
 export function ManageEtapaTimes() {

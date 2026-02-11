@@ -301,22 +301,6 @@ export function MCOWizardPage() {
     }
   }
 
-  const getStepTitle = () => {
-    switch (currentStep) {
-      case 'evento': return 'Dados do Evento'
-      case 'operacional': return 'Configuração Operacional'
-      case 'resumo': return 'Revisão Final'
-    }
-  }
-
-  const getStepDescription = () => {
-    switch (currentStep) {
-      case 'evento': return 'Informe os dados básicos do evento'
-      case 'operacional': return 'Configure as opções operacionais'
-      case 'resumo': return 'Revise os dados antes de confirmar'
-    }
-  }
-
   return (
     <div className="space-y-6">
       {/* Content Card */}

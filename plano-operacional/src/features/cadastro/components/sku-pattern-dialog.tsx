@@ -30,7 +30,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import type { SkuPattern } from '../types/sku-pattern'
-import { validateSkuPattern, generateSku } from '../utils/sku-generator'
+import { generateSku } from '../utils/sku-generator'
 import { DEFAULT_ITEM_TYPE_CONFIGS } from '../constants/default-patterns'
 
 const patternSchema = z.object({

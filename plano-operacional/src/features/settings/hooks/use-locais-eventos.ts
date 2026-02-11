@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { locaisEventosService } from '../services/locais-eventos.service'
-import type { LocalEvento, LocalEventoFormData } from '../types/local-evento'
+import type { LocalEventoFormData } from '../types/local-evento'
 
 export function useLocaisEventos() {
   const queryClient = useQueryClient()

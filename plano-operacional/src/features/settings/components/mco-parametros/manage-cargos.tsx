@@ -69,7 +69,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { cargosService, cargoTimesService, cargoCalculoParametrosService } from '../../services/mco-parametros.service'
-import type { Cargo, CargoFormData, CargoTimeConfig, CargoTimeConfigFormData, CargoCalculoParametros, CargoCalculoParametrosFormData } from '../../types/mco-parametros'
+import type { Cargo, CargoFormData, CargoTimeConfig, CargoTimeConfigFormData, CargoCalculoParametrosFormData } from '../../types/mco-parametros'
 import { CARGO_TIME_LABELS } from '../../types/mco-parametros'
 import { toast } from 'sonner'
 

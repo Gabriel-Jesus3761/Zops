@@ -34,7 +34,6 @@ import {
   cargoTimesService,
   clusterTamanhosService,
 } from '../../services/mco-parametros.service'
-import type { Cluster, Cargo, CargoCluster } from '../../types/mco-parametros'
 import { toast } from 'sonner'
 
 interface MatrixCell {
@@ -186,12 +185,6 @@ export function ManageDimensionamento() {
   const cargosCalculadosAuto = useMemo(() => {
     return sortedCargos.filter((cargo) => isCargoCalculado(cargo.id))
   }, [sortedCargos, isCargoCalculado])
-
-  // Calculate totals
-  const calculateTotal = (clusterId: string) => {
-    if (!matrixData[clusterId]) return 0
-    return Object.values(matrixData[clusterId]).reduce((sum, cell) => sum + cell.quantidade, 0)
-  }
 
   const handleCellChange = (clusterId: string, cargoId: string, value: string) => {
     const quantidade = parseInt(value, 10) || 0

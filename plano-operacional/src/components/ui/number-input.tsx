@@ -29,7 +29,7 @@ export function NumberInput({
 }: NumberInputProps) {
   const [inputValue, setInputValue] = useState<string>('')
   const [isFocused, setIsFocused] = useState(false)
-  const [digitsOnly, setDigitsOnly] = useState<string>('') // Para modo calculadora
+  const [_digitsOnly, setDigitsOnly] = useState<string>('') // Para modo calculadora
 
   // Format number to Brazilian locale (comma as decimal separator)
   const formatNumber = (num: number): string => {

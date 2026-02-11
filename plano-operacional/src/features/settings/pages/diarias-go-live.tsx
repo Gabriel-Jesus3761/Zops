@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Zap, Loader2, AlertCircle, Save } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Table,
@@ -15,7 +14,6 @@ import {
 } from '@/components/ui/table'
 import { NumberInput } from '@/components/ui/number-input'
 import { cargosService, jornadasService, categoriasRemuneracaoService, cargoJornadaCategoriaService } from '../services/mco-parametros.service'
-import type { Cargo, Jornada, CategoriaRemuneracao } from '../types/mco-parametros'
 import { toast } from 'sonner'
 
 export function DiariasGoLivePage() {

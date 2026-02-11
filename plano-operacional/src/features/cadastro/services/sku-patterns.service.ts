@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, where } from 'firebase/firestore'
+import { collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp } from 'firebase/firestore'
 import { db } from '@/config/firebase'
 import type { SkuPattern, PatternItemType } from '../types/sku-pattern'
 
