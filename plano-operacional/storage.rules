@@ -10,13 +10,15 @@ service firebase.storage {
       // ⚠️ TEMPORÁRIO: Auth check removido para desenvolvimento
       // TODO: Restaurar "request.auth != null &&" quando Cloud Function retornar Custom Token
       // Ver: plano-operacional/SEGURANCA_PRODUCAO.md
-      allow write, delete: if request.resource.size <= 300 * 1024 * 1024 // Máximo 300MB
+      allow write: if request.resource.size <= 300 * 1024 * 1024 // Máximo 300MB
         && request.resource.contentType.matches('image/(jpeg|png|webp)'); // Apenas imagens
+      allow delete: if true; // delete não possui request.resource
 
       // ✅ PRODUÇÃO (restaurar antes de deploy):
-      // allow write, delete: if request.auth != null
+      // allow write: if request.auth != null
       //   && request.resource.size <= 300 * 1024 * 1024
       //   && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      // allow delete: if request.auth != null;
     }
 
     // Negar acesso a tudo mais por padrão

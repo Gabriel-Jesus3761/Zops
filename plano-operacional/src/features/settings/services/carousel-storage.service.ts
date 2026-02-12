@@ -1,9 +1,31 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'
 import { storage } from '@/config/firebase'
 import type { LoginCarouselImage } from '../types/appearance'
 
 export class CarouselStorageService {
   private static readonly STORAGE_PATH = 'login-carousel'
+
+  /**
+   * Lista todas as imagens da pasta login-carousel/ no Firebase Storage.
+   * Retorna as URLs de download de cada imagem encontrada.
+   */
+  static async listImages(): Promise<string[]> {
+    try {
+      const folderRef = ref(storage, this.STORAGE_PATH)
+      const result = await listAll(folderRef)
+
+      if (result.items.length === 0) return []
+
+      const urls = await Promise.all(
+        result.items.map((itemRef) => getDownloadURL(itemRef))
+      )
+
+      return urls
+    } catch (error) {
+      console.error('Erro ao listar imagens do carrossel:', error)
+      return []
+    }
+  }
 
   static async uploadImage(file: File, imageId: string): Promise<LoginCarouselImage> {
     try {

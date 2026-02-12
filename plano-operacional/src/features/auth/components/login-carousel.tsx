@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { useLocalStorage } from '@/shared/hooks/use-local-storage'
 import type { CarouselConfig } from '@/features/settings/types/appearance'
 import { DEFAULT_CAROUSEL_CONFIG } from '@/features/settings/types/appearance'
+import { CarouselStorageService } from '@/features/settings/services/carousel-storage.service'
+
+const FALLBACK_IMAGE = '/bg/bg3.webp'
 
 export function LoginCarousel() {
   const [config] = useLocalStorage<CarouselConfig>(
@@ -10,9 +13,25 @@ export function LoginCarousel() {
   )
 
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [images, setImages] = useState<string[]>([FALLBACK_IMAGE])
 
-  const images =
-    config.images.length > 0 ? config.images.map((img) => img.url) : ['/bg/bg3.webp']
+  // Buscar imagens diretamente do Firebase Storage
+  useEffect(() => {
+    let cancelled = false
+
+    CarouselStorageService.listImages().then((urls) => {
+      if (cancelled) return
+      if (urls.length > 0) {
+        setImages(urls)
+      } else {
+        setImages([FALLBACK_IMAGE])
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const hasMultipleImages = images.length > 1
 
@@ -32,7 +51,7 @@ export function LoginCarousel() {
       {/* Images with crossfade */}
       {images.map((image, index) => (
         <img
-          key={index}
+          key={image}
           src={image}
           alt={`Z.Ops Background ${index + 1}`}
           className="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out"
