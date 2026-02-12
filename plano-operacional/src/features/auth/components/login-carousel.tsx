@@ -19,10 +19,10 @@ export function LoginCarousel() {
   useEffect(() => {
     let cancelled = false
 
-    CarouselStorageService.listImages().then((urls) => {
+    CarouselStorageService.listImages().then((result) => {
       if (cancelled) return
-      if (urls.length > 0) {
-        setImages(urls)
+      if (result.length > 0) {
+        setImages(result.map((img) => img.url))
       } else {
         setImages([FALLBACK_IMAGE])
       }

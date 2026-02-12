@@ -15,7 +15,7 @@ export function useCarouselConfig() {
 
   // Sincronizar imagens do Firebase Storage ao montar
   useEffect(() => {
-    CarouselStorageService.listImagesWithMetadata()
+    CarouselStorageService.listImages()
       .then((storageImages) => {
         setConfig((prev) => ({
           ...prev,
