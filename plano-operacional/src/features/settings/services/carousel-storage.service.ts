@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll, getMetadata } from 'firebase/storage'
 import { storage } from '@/config/firebase'
 import type { LoginCarouselImage } from '../types/appearance'
 
@@ -35,17 +35,19 @@ export class CarouselStorageService {
 
       if (result.items.length === 0) return []
 
-      // Apenas 1 request por imagem (getDownloadURL), sem getMetadata
       const images = await Promise.all(
         result.items.map(async (itemRef) => {
-          const url = await getDownloadURL(itemRef)
+          const [url, metadata] = await Promise.all([
+            getDownloadURL(itemRef),
+            getMetadata(itemRef),
+          ])
           return {
             id: itemRef.name,
             url,
             storagePath: itemRef.fullPath,
-            fileName: itemRef.name,
-            size: 0,
-            addedAt: '',
+            fileName: metadata.customMetadata?.originalName || itemRef.name,
+            size: metadata.size,
+            addedAt: metadata.customMetadata?.uploadedAt || metadata.timeCreated,
           } satisfies LoginCarouselImage
         })
       )
