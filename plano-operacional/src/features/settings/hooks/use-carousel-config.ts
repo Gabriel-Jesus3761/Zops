@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useLocalStorage } from '@/shared/hooks/use-local-storage'
 import type { CarouselConfig, LoginCarouselImage } from '../types/appearance'
@@ -10,6 +10,20 @@ export function useCarouselConfig() {
     'zops-login-carousel-config',
     DEFAULT_CAROUSEL_CONFIG
   )
+
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Sincronizar imagens do Firebase Storage ao montar
+  useEffect(() => {
+    CarouselStorageService.listImagesWithMetadata()
+      .then((storageImages) => {
+        setConfig((prev) => ({
+          ...prev,
+          images: storageImages,
+        }))
+      })
+      .finally(() => setIsLoading(false))
+  }, [setConfig])
 
   const addImage = useCallback(
     (image: LoginCarouselImage) => {
@@ -85,6 +99,7 @@ export function useCarouselConfig() {
 
   return {
     config,
+    isLoading,
     addImage,
     removeImage,
     updateInterval,

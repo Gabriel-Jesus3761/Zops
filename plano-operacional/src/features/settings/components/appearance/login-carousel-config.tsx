@@ -11,7 +11,7 @@ import { CarouselIntervalSlider } from './carousel-interval-slider'
 import { CAROUSEL_CONSTRAINTS } from '../../types/appearance'
 
 export function LoginCarouselConfig() {
-  const { config, addImage, removeImage, updateInterval, resetToDefault } = useCarouselConfig()
+  const { config, isLoading, addImage, removeImage, updateInterval, resetToDefault } = useCarouselConfig()
   const { isProcessing, error, processFile, clearError } = useImageUpload()
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,7 +117,7 @@ export function LoginCarouselConfig() {
             <ImageUploadGrid
               images={config.images}
               onRemove={removeImage}
-              isProcessing={isProcessing}
+              isProcessing={isProcessing || isLoading}
             />
 
             {canAddMore && (

@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll, getMetadata } from 'firebase/storage'
 import { storage } from '@/config/firebase'
 import type { LoginCarouselImage } from '../types/appearance'
 
@@ -23,6 +23,41 @@ export class CarouselStorageService {
       return urls
     } catch (error) {
       console.error('Erro ao listar imagens do carrossel:', error)
+      return []
+    }
+  }
+
+  /**
+   * Lista todas as imagens com metadados completos (para a tela de configurações).
+   */
+  static async listImagesWithMetadata(): Promise<LoginCarouselImage[]> {
+    try {
+      const folderRef = ref(storage, this.STORAGE_PATH)
+      const result = await listAll(folderRef)
+
+      if (result.items.length === 0) return []
+
+      const images = await Promise.all(
+        result.items.map(async (itemRef) => {
+          const [url, metadata] = await Promise.all([
+            getDownloadURL(itemRef),
+            getMetadata(itemRef),
+          ])
+
+          return {
+            id: itemRef.name,
+            url,
+            storagePath: itemRef.fullPath,
+            fileName: metadata.customMetadata?.originalName || itemRef.name,
+            size: metadata.size,
+            addedAt: metadata.customMetadata?.uploadedAt || metadata.timeCreated,
+          } satisfies LoginCarouselImage
+        })
+      )
+
+      return images
+    } catch (error) {
+      console.error('Erro ao listar imagens com metadados:', error)
       return []
     }
   }
