@@ -196,10 +196,6 @@ export const router = createBrowserRouter([
             path: 'times-por-etapa',
             element: null,
           },
-          {
-            path: 'parametros',
-            element: null,
-          },
           // Alimentação
           {
             path: 'parametros-alimentacao',
@@ -266,10 +262,6 @@ export const router = createBrowserRouter([
             element: <Navigate to="/configuracoes/cargos-x-cluster" replace />,
           },
           {
-            path: 'mco-parametros/parametros',
-            element: <Navigate to="/configuracoes/parametros" replace />,
-          },
-          {
             path: 'diarias-go-live',
             element: <Navigate to="/configuracoes/parametros-diarias" replace />,
           },
@@ -281,4 +273,4 @@ export const router = createBrowserRouter([
     path: '*',
     element: <Navigate to="/" replace />,
   },
-])
+], { basename: '/Zops' })

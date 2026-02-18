@@ -12,6 +12,27 @@ import {
   Zap,
   Coffee,
   SlidersHorizontal,
+  Truck,
+  MapPin,
+  Clock,
+  Calendar,
+  Users,
+  Star,
+  Flag,
+  Target,
+  Shield,
+  Heart,
+  Home,
+  Package,
+  Camera,
+  Music,
+  Briefcase,
+  Award,
+  Circle,
+  Sun,
+  Moon,
+  Utensils,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   DndContext,
@@ -30,6 +51,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -89,6 +111,17 @@ const TIPO_CALCULO_OPTIONS: { value: TipoCalculoCategoria; label: string; icon: 
   { value: 'day_off', label: 'Day Off', icon: Coffee, color: 'bg-purple-100 text-purple-700 border-purple-200' },
 ]
 
+// Mapa de ícones disponíveis para seleção
+export const ICON_MAP: Record<string, LucideIcon> = {
+  Plane, Wrench, Zap, Coffee, Truck, MapPin, Clock, Calendar,
+  Users, Star, Flag, Target, Shield, Heart, Home, Package,
+  Camera, Music, Briefcase, Award, Circle, Sun, Moon, Utensils,
+}
+
+export function getIconByName(name: string): LucideIcon {
+  return ICON_MAP[name] || Circle
+}
+
 // =============================================================================
 // SORTABLE ROW
 // =============================================================================
@@ -114,9 +147,12 @@ function SortableEtapaRow({ etapa, index, tiposConfig, onEdit, onDelete }: Sorta
       <TableCell className="font-medium">{index + 1}</TableCell>
       <TableCell className="font-medium">{etapa.nome}</TableCell>
       <TableCell>
-        <Badge variant="outline" className={`${tipoConfig?.cor_fundo} ${tipoConfig?.cor_texto} ${tipoConfig?.cor_borda}`}>
-          {tipoConfig?.label || etapa.tipo_calculo}
-        </Badge>
+        {(() => { const EtapaIcon = getIconByName(tipoConfig?.icon || 'Circle'); return (
+          <Badge variant="outline" className={`${tipoConfig?.cor_fundo} ${tipoConfig?.cor_texto} ${tipoConfig?.cor_borda} gap-1`}>
+            <EtapaIcon className="h-3 w-3" />
+            {tipoConfig?.label || etapa.tipo_calculo}
+          </Badge>
+        ) })()}
       </TableCell>
       <TableCell className="text-muted-foreground">{etapa.descricao || '-'}</TableCell>
       <TableCell className="text-right">
@@ -623,9 +659,12 @@ export function EtapasProjetoPage() {
                           <TableCell className="font-mono text-sm">{tipo.valor}</TableCell>
                           <TableCell>{tipo.label}</TableCell>
                           <TableCell>
-                            <Badge className={`${tipo.cor_fundo} ${tipo.cor_texto} ${tipo.cor_borda}`}>
-                              {tipo.label}
-                            </Badge>
+                            {(() => { const TipoIcon = getIconByName(tipo.icon); return (
+                              <Badge className={`${tipo.cor_fundo} ${tipo.cor_texto} ${tipo.cor_borda} gap-1`}>
+                                <TipoIcon className="h-3 w-3" />
+                                {tipo.label}
+                              </Badge>
+                            ) })()}
                           </TableCell>
                           <TableCell>
                             {tipo.is_sistema && <Badge variant="secondary">Sistema</Badge>}
@@ -675,6 +714,27 @@ export function EtapasProjetoPage() {
                   />
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label>Ícone</Label>
+                <div className="grid grid-cols-8 gap-1.5">
+                  {Object.entries(ICON_MAP).map(([name, IconComp]) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setFormTipoIcon(name)}
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-md border transition-colors',
+                        formTipoIcon === name
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-transparent hover:border-muted-foreground/30 hover:bg-muted text-muted-foreground'
+                      )}
+                      title={name}
+                    >
+                      <IconComp className="h-4 w-4" />
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Cor de Fundo</Label>
@@ -719,9 +779,12 @@ export function EtapasProjetoPage() {
               <div className="pt-2">
                 <Label>Preview:</Label>
                 <div className="mt-2">
-                  <Badge className={`${formTipoCorFundo} ${formTipoCorTexto} ${formTipoCorBorda}`}>
-                    {formTipoLabel || 'Preview'}
-                  </Badge>
+                  {(() => { const PreviewIcon = getIconByName(formTipoIcon); return (
+                    <Badge className={`${formTipoCorFundo} ${formTipoCorTexto} ${formTipoCorBorda} gap-1`}>
+                      <PreviewIcon className="h-3 w-3" />
+                      {formTipoLabel || 'Preview'}
+                    </Badge>
+                  ) })()}
                 </div>
               </div>
             </div>

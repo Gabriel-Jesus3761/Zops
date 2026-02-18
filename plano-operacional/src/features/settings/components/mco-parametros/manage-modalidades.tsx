@@ -7,10 +7,7 @@ import {
   Trash2,
   Loader2,
   AlertCircle,
-  CreditCard,
-  DollarSign,
 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -160,52 +157,8 @@ export function ManageModalidades() {
     }
   }
 
-  const activeCount = modalidades?.filter((m) => m.ativo).length || 0
-  const avgTpv = modalidades?.length
-    ? modalidades.reduce((sum, m) => sum + m.tpv_por_terminal, 0) / modalidades.length
-    : 0
-
   return (
     <div className="space-y-6">
-      {/* Header Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total de Modalidades</p>
-                <p className="text-3xl font-bold">{modalidades?.length || 0}</p>
-              </div>
-              <Workflow className="h-8 w-8 text-muted-foreground/50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Modalidades Ativas</p>
-                <p className="text-3xl font-bold">{activeCount}</p>
-              </div>
-              <CreditCard className="h-8 w-8 text-green-500/50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">TPV Médio</p>
-                <p className="text-2xl font-bold">{formatCurrency(avgTpv)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-blue-500/50" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Actions */}
       <div className="flex items-center justify-between">
         <div>

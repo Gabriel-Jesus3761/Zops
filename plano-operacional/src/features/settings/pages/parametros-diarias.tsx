@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plane, Wrench, Coffee, Zap, Loader2, AlertCircle, Save } from 'lucide-react'
+import { Loader2, AlertCircle, Save } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -20,22 +20,17 @@ import {
   categoriasRemuneracaoService,
   cargoCategoriaValorService,
   jornadasService,
-  cargoJornadaCategoriaService
+  cargoJornadaCategoriaService,
+  tipoCalculoConfigService,
 } from '../services/mco-parametros.service'
+import { getIconByName } from './etapas-projeto'
 import { toast } from 'sonner'
-
-const ICON_MAP = {
-  viagem: Plane,
-  setup: Wrench,
-  day_off: Coffee,
-  go_live: Zap,
-}
 
 export function ParametrosDiariasPage() {
   const [valores, setValores] = useState<Record<string, number>>({})
   const [valoresGoLive, setValoresGoLive] = useState<Record<string, number>>({})
   const [hasChangesGoLive, setHasChangesGoLive] = useState(false)
-  const [activeTab, setActiveTab] = useState<string>('viagem')
+  const [activeTab, setActiveTab] = useState<string>('')
 
   const queryClient = useQueryClient()
 
@@ -62,6 +57,11 @@ export function ParametrosDiariasPage() {
   const { data: valoresGoLiveExistentes, isLoading: isLoadingValoresGoLive } = useQuery({
     queryKey: ['mco-cargo-jornada-categoria-valores'],
     queryFn: () => cargoJornadaCategoriaService.getValores(),
+  })
+
+  const { data: tiposConfig } = useQuery({
+    queryKey: ['tipo-calculo-config'],
+    queryFn: () => tipoCalculoConfigService.getTipos(),
   })
 
   const salvarMutation = useMutation({
@@ -196,9 +196,16 @@ export function ParametrosDiariasPage() {
 
   const isLoading = isLoadingCargos || isLoadingCategorias || isLoadingValores || isLoadingJornadas || isLoadingValoresGoLive
   const categoriasFixas = categorias
-    ?.filter((c) => c.ativo && ['viagem', 'setup', 'day_off'].includes(c.tipo_calculo))
+    ?.filter((c) => c.ativo && c.tipo_calculo !== 'go_live')
     .sort((a, b) => a.ordem - b.ordem)
   const categoriaGoLive = categorias?.find((c) => c.ativo && c.tipo_calculo === 'go_live')
+
+  // Selecionar primeira aba automaticamente quando categorias carregam
+  useEffect(() => {
+    if (!activeTab && categoriasFixas && categoriasFixas.length > 0) {
+      setActiveTab(categoriasFixas[0].tipo_calculo)
+    }
+  }, [activeTab, categoriasFixas])
   const sortedCargos = cargos?.sort((a, b) => a.ordem - b.ordem)
   const sortedJornadas = jornadas?.sort((a, b) => a.ordem - b.ordem)
 
@@ -248,9 +255,10 @@ export function ParametrosDiariasPage() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="flex w-full">
               {categoriasFixas?.map((categoria) => {
-                const Icon = ICON_MAP[categoria.tipo_calculo as keyof typeof ICON_MAP]
+                const tipoConfig = tiposConfig?.find((t) => t.valor === categoria.tipo_calculo)
+                const Icon = getIconByName(tipoConfig?.icon || 'Circle')
                 return (
                   <TabsTrigger key={categoria.id} value={categoria.tipo_calculo}>
                     <Icon className="mr-2 h-4 w-4" />
@@ -258,12 +266,16 @@ export function ParametrosDiariasPage() {
                   </TabsTrigger>
                 )
               })}
-              {categoriaGoLive && (
-                <TabsTrigger value="go_live">
-                  <Zap className="mr-2 h-4 w-4" />
-                  {categoriaGoLive.nome}
-                </TabsTrigger>
-              )}
+              {categoriaGoLive && (() => {
+                const goLiveConfig = tiposConfig?.find((t) => t.valor === 'go_live')
+                const GoLiveIcon = getIconByName(goLiveConfig?.icon || 'Zap')
+                return (
+                  <TabsTrigger value="go_live">
+                    <GoLiveIcon className="mr-2 h-4 w-4" />
+                    {categoriaGoLive.nome}
+                  </TabsTrigger>
+                )
+              })()}
             </TabsList>
 
             {categoriasFixas?.map((categoria) => (

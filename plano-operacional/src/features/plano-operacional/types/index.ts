@@ -81,7 +81,7 @@ export interface DashboardMetrics {
 
 export interface PlanoFilters {
   searchText: string
-  status: PDVStatus[]
+  status: Array<PDVStatus | 'Inativo'>
   setor: string[]
   categoria: string[]
   dataInicio?: Date

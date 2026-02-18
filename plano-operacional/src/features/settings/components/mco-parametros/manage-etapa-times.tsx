@@ -68,7 +68,7 @@ export function ManageEtapaTimes() {
   const sortedEtapas = useMemo(() => {
     if (!etapas) return []
     return [...etapas]
-      .filter((e) => e.ativo && ['viagem', 'setup', 'go_live', 'day_off'].includes(e.tipo_calculo))
+      .filter((e) => e.ativo)
       .sort((a, b) => a.ordem - b.ordem)
   }, [etapas])
 

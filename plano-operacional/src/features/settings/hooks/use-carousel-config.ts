@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useLocalStorage } from '@/shared/hooks/use-local-storage'
 import type { CarouselConfig, LoginCarouselImage } from '../types/appearance'
@@ -13,17 +13,22 @@ export function useCarouselConfig() {
 
   const [isLoading, setIsLoading] = useState(true)
 
-  // Sincronizar imagens do Firebase Storage ao montar
+  // Ref para evitar loop: setConfig muda de referência a cada render
+  // porque useLocalStorage inclui storedValue nas deps do useCallback
+  const setConfigRef = useRef(setConfig)
+  setConfigRef.current = setConfig
+
+  // Sincronizar imagens do Firebase Storage ao montar (apenas 1 vez)
   useEffect(() => {
     CarouselStorageService.listImages()
       .then((storageImages) => {
-        setConfig((prev) => ({
+        setConfigRef.current((prev) => ({
           ...prev,
           images: storageImages,
         }))
       })
       .finally(() => setIsLoading(false))
-  }, [setConfig])
+  }, [])
 
   const addImage = useCallback(
     (image: LoginCarouselImage) => {
@@ -40,7 +45,6 @@ export function useCarouselConfig() {
       const imageToRemove = config.images.find((img) => img.id === imageId)
       if (imageToRemove) {
         try {
-          // Deletar do Firebase Storage
           await CarouselStorageService.deleteImage(imageToRemove.storagePath)
           toast.success('Imagem removida', {
             description: 'A imagem foi excluída com sucesso.',
@@ -74,7 +78,6 @@ export function useCarouselConfig() {
   const resetToDefault = useCallback(async () => {
     const imageCount = config.images.length
 
-    // Deletar todas as imagens do Firebase Storage
     const deletePromises = config.images.map((img) =>
       CarouselStorageService.deleteImage(img.storagePath).catch((err) =>
         console.error('Erro ao deletar imagem:', err)
@@ -83,8 +86,6 @@ export function useCarouselConfig() {
 
     try {
       await Promise.all(deletePromises)
-
-      // Limpar config
       removeConfig()
 
       toast.success('Configurações resetadas', {

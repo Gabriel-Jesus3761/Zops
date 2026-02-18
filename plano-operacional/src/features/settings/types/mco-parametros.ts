@@ -225,31 +225,50 @@ export interface ParametrosFreteFormData {
 
 // -----------------------------------------------------------------------------
 // PARÂMETROS DE ALIMENTAÇÃO
-// Valores de refeições
+// Valor de alimentação por categoria (fase) + jornada (opcional)
+// Fases com valor único: Viagem, Setup, Day Off (jornada_id = null)
+// Go Live: valor por jornada (jornada_id preenchido)
 // -----------------------------------------------------------------------------
-export interface ParametrosAlimentacao {
+export interface AlimentacaoValor {
   id: string
-  nome: string // Ex: "Padrão", "Premium", "Econômico"
-  valor_pequeno_almoco: number
-  valor_almoco: number
-  valor_jantar: number
-  valor_lanche_noturno: number
-  valor_diaria_completa: number // Soma de todas as refeições
-  cidade?: string // Se específico para cidade
-  uf?: string
-  ativo: boolean
+  categoria_id: string // FK → CategoriaRemuneracao
+  jornada_id: string | null // FK → Jornada (null para fases com valor único)
+  valor: number
   created_at: string
   updated_at: string
 }
 
-export interface ParametrosAlimentacaoFormData {
-  nome: string
-  valor_pequeno_almoco: number
-  valor_almoco: number
-  valor_jantar: number
-  valor_lanche_noturno: number
-  cidade?: string
-  uf?: string
+export interface AlimentacaoValorFormData {
+  categoria_id: string
+  jornada_id: string | null
+  valor: number
+}
+
+// -----------------------------------------------------------------------------
+// HOSPEDAGEM BASE DE CUSTO
+// Valores de diária por cidade/UF/região
+// -----------------------------------------------------------------------------
+export interface HospedagemBaseCusto {
+  id: string
+  regiao: string // Norte, Nordeste, Centro-Oeste, Sudeste, Sul
+  uf: string     // Sigla do estado (SP, RJ, etc.)
+  cidade: string
+  valor_diaria: number
+  created_at: string
+  updated_at: string
+}
+
+// -----------------------------------------------------------------------------
+// HOSPEDAGEM ELEGIBILIDADE
+// Quais cargos têm direito à hospedagem por cluster
+// -----------------------------------------------------------------------------
+export interface HospedagemElegibilidade {
+  id: string
+  cargo_id: string
+  cluster_id: string
+  elegivel: boolean
+  created_at: string
+  updated_at: string
 }
 
 // -----------------------------------------------------------------------------

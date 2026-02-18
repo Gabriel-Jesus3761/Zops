@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
@@ -41,8 +41,10 @@ import {
   ManageModalidades,
   ManageJornadas,
   ManageDimensionamento,
-  ManageParametrosGerais,
   ManageEtapaTimes,
+  ManageAlimentacao,
+  ManageBaseCustoHospedagem,
+  ManageMatrizHospedagem,
 } from '../components/mco-parametros'
 import { ParametrosDiariasPage } from './parametros-diarias'
 import { EtapasProjetoPage } from './etapas-projeto'
@@ -112,7 +114,6 @@ const settingsSections: NavSection[] = [
           { key: 'parametros-diarias', label: 'Parâmetros de Diárias', icon: DollarSign, path: '/configuracoes/parametros-diarias' },
           { key: 'cargos-x-cluster', label: 'Cargos x Cluster', icon: Grid3x3, path: '/configuracoes/cargos-x-cluster' },
           { key: 'times-por-etapa', label: 'Times por Etapa', icon: UsersRound, path: '/configuracoes/times-por-etapa' },
-          { key: 'parametros', label: 'Parâmetros Gerais', icon: SlidersHorizontal, path: '/configuracoes/parametros' },
         ],
       },
       {
@@ -211,6 +212,21 @@ export function SettingsPage() {
       return next
     })
   }
+
+  // Auto-abrir sub-grupo quando navegar para uma rota filha
+  useEffect(() => {
+    for (const section of settingsSections) {
+      for (const item of section.items) {
+        if (isSubGroup(item) && subGroupContainsKey(item, activeKey)) {
+          setOpenSubGroups((prev) => {
+            const next = new Set(prev)
+            next.add(item.key)
+            return next
+          })
+        }
+      }
+    }
+  }, [activeKey])
 
   // Detectar sub-aba ativa de usuários
   const getActiveUserTab = () => {
@@ -318,24 +334,6 @@ export function SettingsPage() {
     </nav>
   )
 
-  // Placeholder para seções que ainda não possuem componente
-  const PlaceholderContent = ({ title, description }: { title: string; description: string }) => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
-        <p className="text-muted-foreground">{description}</p>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>Esta seção está em desenvolvimento</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">Em breve...</p>
-        </CardContent>
-      </Card>
-    </div>
-  )
 
   // Renderizar o conteúdo baseado na seção ativa
   const renderContent = () => {
@@ -461,17 +459,6 @@ export function SettingsPage() {
           </div>
         )
 
-      case 'parametros':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">Parâmetros Gerais</h2>
-              <p className="text-muted-foreground">Configurações gerais do cálculo MCO</p>
-            </div>
-            <ManageParametrosGerais />
-          </div>
-        )
-
       // Mão de Obra
       case 'cargos':
         return (
@@ -522,22 +509,60 @@ export function SettingsPage() {
 
       // Alimentação
       case 'parametros-alimentacao':
-        return <PlaceholderContent title="Parâmetros de Alimentação" description="Configurar custos de alimentação" />
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Parâmetros de Alimentação</h2>
+              <p className="text-muted-foreground">Configure os valores de alimentação por fase e jornada</p>
+            </div>
+            <ManageAlimentacao />
+          </div>
+        )
 
       // Hospedagem
       case 'base-custo-hospedagem':
-        return <PlaceholderContent title="Base de Custo" description="Configurar base de custos de hospedagem" />
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Base de Custo de Hospedagem</h2>
+              <p className="text-muted-foreground">Configure os valores de diária por cidade</p>
+            </div>
+            <ManageBaseCustoHospedagem />
+          </div>
+        )
 
       case 'matriz-hospedagem':
-        return <PlaceholderContent title="Matriz de Hospedagem" description="Matriz de custos de hospedagem por região e categoria" />
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Matriz de Hospedagem</h2>
+              <p className="text-muted-foreground">Configure quais cargos têm direito à hospedagem por tamanho de evento</p>
+            </div>
+            <ManageMatrizHospedagem />
+          </div>
+        )
 
       // Transporte
       case 'parametros-transporte':
-        return <PlaceholderContent title="Parâmetros de Transporte" description="Configurar custos de transporte por modalidade e distância" />
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Parâmetros de Transporte</h2>
+              <p className="text-muted-foreground">Configurar custos de transporte por modalidade e distância</p>
+            </div>
+          </div>
+        )
 
       // Frete
       case 'parametros-frete':
-        return <PlaceholderContent title="Parâmetros de Frete" description="Configurar custos de frete por filial e cluster" />
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Parâmetros de Frete</h2>
+              <p className="text-muted-foreground">Configurar custos de frete por filial e cluster</p>
+            </div>
+          </div>
+        )
 
       // Avançado
       case 'notificacoes':
@@ -622,7 +647,9 @@ export function SettingsPage() {
 
       {/* Conteúdo principal */}
       <main className="relative z-0 flex-1 overflow-y-auto p-6">
-        {renderContent()}
+        <div key={`${location.pathname}-${activeKey}`}>
+          {renderContent()}
+        </div>
       </main>
     </div>
   )

@@ -159,9 +159,16 @@ export function useFilteredPlanoData(data: PDV[], filters: PlanoFilters) {
       )
     }
 
-    // Filtro por status
+    // Filtro por status (multi-seleção, inclui "Inativo")
     if (filters.status.length > 0) {
-      filtered = filtered.filter(pdv => filters.status.includes(pdv.Status))
+      const includesInactive = filters.status.includes('Inativo')
+      const statusFilters = filters.status.filter(status => status !== 'Inativo') as PDVStatus[]
+
+      filtered = filtered.filter(pdv => {
+        const matchesInactive = includesInactive && (pdv.desativado || pdv.Status === 'Cancelado')
+        const matchesStatus = statusFilters.length > 0 && statusFilters.includes(pdv.Status)
+        return matchesInactive || matchesStatus
+      })
     }
 
     // Filtro por setor
