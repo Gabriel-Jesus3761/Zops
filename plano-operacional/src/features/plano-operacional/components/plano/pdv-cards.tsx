@@ -78,8 +78,6 @@ export function PDVCards({ data, isLoading }: PDVCardsProps) {
         const isEstoque = pdv['Ponto de Venda'].toLowerCase() === 'estoque'
         const isInactive = pdv.desativado || pdv.Status === 'Cancelado'
         const statusLabel = (isInactive ? 'Inativo' : pdv.Status) as keyof typeof statusColors
-        const totalInsumos =
-          pdv.carregadores + pdv.capas + pdv.cartoes + pdv.powerbanks + pdv.tomadas
 
         return (
           <Card

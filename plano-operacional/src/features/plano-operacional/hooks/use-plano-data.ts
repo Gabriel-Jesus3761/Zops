@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import type { PDV, PlanoFilters } from '../types'
+import type { PDV, PlanoFilters, PDVStatus } from '../types'
 
 // Mock data para demonstração
 const mockPDVs: PDV[] = [

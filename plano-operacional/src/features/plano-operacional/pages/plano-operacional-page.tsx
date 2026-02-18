@@ -26,7 +26,7 @@ export function PlanoOperacionalPage() {
   }, [activeTab])
 
   // Busca dados do plano (PDVs)
-  const { data: planoData, isLoading: isLoadingPlano, refetch: refetchPlano } = usePlanoData()
+  const { data: planoData, isLoading: isLoadingPlano } = usePlanoData()
 
   // Calcula métricas do dashboard
   const metrics = useDashboardMetrics(planoData)

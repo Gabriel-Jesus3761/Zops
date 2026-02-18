@@ -49,7 +49,6 @@ import {
 } from '@/components/ui/pagination'
 import { NumberInput } from '@/components/ui/number-input'
 import { hospedagemBaseCustoService } from '../../services/mco-parametros.service'
-import type { HospedagemBaseCusto } from '../../types/mco-parametros'
 import { toast } from 'sonner'
 
 const REGIOES = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul']

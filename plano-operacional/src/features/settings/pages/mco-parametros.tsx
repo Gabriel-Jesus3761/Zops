@@ -7,7 +7,6 @@ import {
   ManageModalidades,
   ManageJornadas,
   ManageDimensionamento,
-  ManageParametrosGerais,
 } from '../components/mco-parametros'
 
 const MCO_TABS = [
@@ -17,7 +16,6 @@ const MCO_TABS = [
   { value: 'modalidades', label: 'Modalidades', path: 'modalidades' },
   { value: 'jornadas', label: 'Jornadas', path: 'jornadas' },
   { value: 'dimensionamento', label: 'Dimensionamento', path: 'dimensionamento' },
-  { value: 'parametros', label: 'Parâmetros Gerais', path: 'parametros' },
 ] as const
 
 type MCOTabValue = (typeof MCO_TABS)[number]['value']
@@ -53,7 +51,7 @@ export function MCOParametrosPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           {MCO_TABS.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
               {tab.label}
@@ -85,9 +83,6 @@ export function MCOParametrosPage() {
           <ManageDimensionamento />
         </TabsContent>
 
-        <TabsContent value="parametros" className="mt-6">
-          <ManageParametrosGerais />
-        </TabsContent>
       </Tabs>
     </div>
   )
