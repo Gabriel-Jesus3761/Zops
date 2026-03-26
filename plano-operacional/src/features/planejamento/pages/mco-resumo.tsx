@@ -21,7 +21,6 @@ import {
   BedDouble,
   Car,
   Plane,
-  Coffee,
   Truck,
   ChevronDown,
   ChevronUp,

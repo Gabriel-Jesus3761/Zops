@@ -1,4 +1,5 @@
-import { useState, FC } from 'react'
+import { useState } from 'react'
+import type { FC } from 'react'
 
 export const CalculadoraPage: FC = () => {
   const [display, setDisplay] = useState<string>('0')

@@ -154,6 +154,7 @@ export default function MCODetalhesPage() {
     dayOff: 0,
     frete: bd?.frete?.total ?? 0,
   }
+  const custoTotal = mco.custo_operacional_efetivo || 0
 
   return (
     <div className="space-y-4 animate-fade-in">
