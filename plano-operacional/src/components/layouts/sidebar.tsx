@@ -110,6 +110,13 @@ const menuItems: MenuItemOrGroup[] = [
     label: 'Configurações',
     path: '/configuracoes',
   },
+  {
+    key: 'calculadora',
+    type: 'item',
+    icon: <Calculator className="h-5 w-5" />,
+    label: 'Calculadora',
+    path: '/calculadora',
+  },
 ]
 
 // Sub-item de menu memoizado

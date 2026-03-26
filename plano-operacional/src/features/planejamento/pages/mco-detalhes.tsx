@@ -2,6 +2,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+
+const parseDateLocal = (s: string): Date => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -128,19 +133,26 @@ export default function MCODetalhesPage() {
 
   const statusConfig = getStatusConfig(mco.status)
   const duracao = mco.data_inicial && mco.data_final
-    ? differenceInDays(new Date(mco.data_final), new Date(mco.data_inicial)) + 1
+    ? differenceInDays(parseDateLocal(mco.data_final), parseDateLocal(mco.data_inicial)) + 1
     : 0
 
-  // Estimativa de custos por categoria (50% mão de obra, etc.)
-  const custoTotal = mco.custo_operacional_efetivo || 0
+  // Helper: parseia string de faturamento em formato brasileiro para número
+  const parseFaturamento = (str: string | undefined): number => {
+    if (!str) return 0
+    const clean = str.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.')
+    return parseFloat(clean) || 0
+  }
+
+  // Custos por categoria — lê breakdown_custos salvo; sem fallback em percentuais fictícios
+  const bd = (mco.breakdown_custos as Record<string, any> | undefined) ?? {}
   const custoPorCategoria = {
-    maoDeObra: custoTotal * 0.50,
-    alimentacao: custoTotal * 0.15,
-    hospedagem: custoTotal * 0.15,
-    viagem: custoTotal * 0.08,
-    transporte: custoTotal * 0.07,
-    dayOff: custoTotal * 0.03,
-    frete: custoTotal * 0.02,
+    maoDeObra: bd?.mao_de_obra?.total ?? 0,
+    alimentacao: bd?.alimentacao?.total ?? 0,
+    hospedagem: bd?.hospedagem?.total ?? 0,
+    viagem: bd?.viagem?.total ?? 0,
+    transporte: bd?.transporte_local?.total ?? 0,
+    dayOff: 0,
+    frete: bd?.frete?.total ?? 0,
   }
 
   return (
@@ -224,7 +236,7 @@ export default function MCODetalhesPage() {
                 Faturamento
               </div>
               <div className="text-2xl font-bold">
-                {mco.faturamento_estimado ? formatCurrency(parseFloat(mco.faturamento_estimado)) : '-'}
+                {mco.faturamento_estimado ? formatCurrency(parseFaturamento(mco.faturamento_estimado)) : '-'}
               </div>
             </div>
           </div>
@@ -252,9 +264,9 @@ export default function MCODetalhesPage() {
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">
-                  {mco.data_inicial && format(new Date(mco.data_inicial), 'dd/MM/yyyy', { locale: ptBR })}
+                  {mco.data_inicial && format(parseDateLocal(mco.data_inicial), 'dd/MM/yyyy', { locale: ptBR })}
                   {' - '}
-                  {mco.data_final && format(new Date(mco.data_final), 'dd/MM/yyyy', { locale: ptBR })}
+                  {mco.data_final && format(parseDateLocal(mco.data_final), 'dd/MM/yyyy', { locale: ptBR })}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">Duração: {duracao} dia{duracao !== 1 ? 's' : ''}</p>
@@ -322,9 +334,10 @@ export default function MCODetalhesPage() {
                   variant="outline"
                   className={cn(
                     'font-medium',
-                    mco.porte === 'Grande' && 'bg-purple-50 border-purple-300 text-purple-700',
-                    mco.porte === 'Médio' && 'bg-blue-50 border-blue-300 text-blue-700',
-                    mco.porte === 'Pequeno' && 'bg-gray-50 border-gray-300 text-gray-700'
+                    mco.porte === 'MEGA' && 'bg-red-50 border-red-300 text-red-700',
+                    mco.porte === 'G' && 'bg-purple-50 border-purple-300 text-purple-700',
+                    mco.porte === 'M' && 'bg-blue-50 border-blue-300 text-blue-700',
+                    (mco.porte === 'P' || mco.porte === 'PP') && 'bg-gray-50 border-gray-300 text-gray-700'
                   )}
                 >
                   {mco.porte}

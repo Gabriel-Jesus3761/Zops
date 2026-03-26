@@ -232,6 +232,8 @@ export function MCOWizardPage() {
         publico_estimado: eventoData.publicoEstimado,
         custo_operacional_efetivo: calculationResult.custo_operacional_efetivo,
         cot: calculationResult.cot,
+        porte: calculationResult.cluster_tamanho,
+        tipo_atendimento: calculationResult.tipo_atendimento,
         cliente_id: eventoData.cliente || null,
         cliente_nome: eventoData.clienteNome,
         num_sessoes: eventoData.sessoes.length,

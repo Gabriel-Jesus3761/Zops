@@ -10,6 +10,7 @@ import {
   RefreshCw,
   BedDouble,
   Database,
+  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,6 +50,7 @@ import {
 } from '@/components/ui/pagination'
 import { NumberInput } from '@/components/ui/number-input'
 import { hospedagemBaseCustoService } from '../../services/mco-parametros.service'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 import { toast } from 'sonner'
 
 const REGIOES = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul']
@@ -112,6 +114,7 @@ export function ManageBaseCustoHospedagem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hospedagem-base-custo'] })
       setEditedValues({})
+      mcoCalculatorService.clearCache()
       toast.success('Valores salvos com sucesso!')
     },
     onError: () => {
@@ -219,6 +222,11 @@ export function ManageBaseCustoHospedagem() {
     setCurrentPage(1)
   }
 
+  const handleResetar = () => {
+    setEditedValues({})
+    toast.info('Alterações descartadas.')
+  }
+
   const hasChanges = Object.keys(editedValues).length > 0
   const changesCount = Object.keys(editedValues).length
 
@@ -277,14 +285,25 @@ export function ManageBaseCustoHospedagem() {
           )}
 
           {hasChanges && (
-            <Button
-              size="sm"
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Salvar ({changesCount})
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetar}
+                disabled={saveMutation.isPending}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Resetar Valores
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Salvar ({changesCount})
+              </Button>
+            </>
           )}
         </div>
       </div>

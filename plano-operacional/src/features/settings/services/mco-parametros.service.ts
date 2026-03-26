@@ -79,8 +79,8 @@ async function fetchCollection<T>(collectionUrl: string, mapFn: (doc: any) => T)
   return docs.map(mapFn)
 }
 
-async function createDocument(collectionUrl: string, data: any): Promise<string> {
-  const docId = crypto.randomUUID()
+async function createDocument(collectionUrl: string, data: any, customId?: string): Promise<string> {
+  const docId = customId || crypto.randomUUID()
 
   const response = await fetch(`${CLOUD_FUNCTIONS_BASE}/setDoc`, {
     method: 'POST',
@@ -158,7 +158,7 @@ export const clustersService = {
   },
 
   async createCluster(data: ClusterFormData): Promise<string> {
-    return createDocument('mco_clusters', { ...data, ativo: true })
+    return createDocument('mco_clusters', { ...data, ativo: true }, data.tamanho)
   },
 
   async updateCluster(id: string, data: Partial<ClusterFormData>): Promise<void> {
@@ -193,7 +193,7 @@ export const clusterTamanhosService = {
   },
 
   async createTamanho(data: ClusterTamanhoConfigFormData): Promise<string> {
-    return createDocument('mco_cluster_tamanhos', { ...data, ativo: true })
+    return createDocument('mco_cluster_tamanhos', { ...data, ativo: true }, data.sigla.trim())
   },
 
   async updateTamanho(id: string, data: Partial<ClusterTamanhoConfigFormData>): Promise<void> {
@@ -260,7 +260,7 @@ export const filiaisService = {
   },
 
   async createFilial(data: FilialZigFormData): Promise<string> {
-    return createDocument('mco_filiais', { ...data, ativo: true })
+    return createDocument('mco_filiais', { ...data, ativo: true }, data.cidade.trim())
   },
 
   async updateFilial(id: string, data: Partial<FilialZigFormData>): Promise<void> {
@@ -400,6 +400,11 @@ export const cargoClusterService = {
   async deleteCargoCluster(id: string): Promise<void> {
     return deleteDocument('mco_cargo_cluster', id)
   },
+
+  async deleteAll(): Promise<void> {
+    const all = await this.getCargosClusters()
+    await Promise.all(all.map((cc) => deleteDocument('mco_cargo_cluster', cc.id)))
+  },
 }
 
 // =============================================================================
@@ -420,7 +425,7 @@ export const modalidadesService = {
   },
 
   async createModalidade(data: ModalidadeFormData): Promise<string> {
-    return createDocument('mco_modalidades', { ...data, ativo: true })
+    return createDocument('mco_modalidades', { ...data, ativo: true }, data.nome)
   },
 
   async updateModalidade(id: string, data: Partial<ModalidadeFormData>): Promise<void> {
@@ -527,6 +532,11 @@ export const parametrosTransporteService = {
   async deleteParametro(id: string): Promise<void> {
     return deleteDocument('mco_parametros_transporte', id)
   },
+
+  async deleteAll(): Promise<void> {
+    const all = await this.getParametros()
+    await Promise.all(all.map((p) => deleteDocument('mco_parametros_transporte', p.id)))
+  },
 }
 
 // =============================================================================
@@ -558,6 +568,11 @@ export const parametrosFreteService = {
 
   async deleteParametro(id: string): Promise<void> {
     return deleteDocument('mco_parametros_frete', id)
+  },
+
+  async deleteAll(): Promise<void> {
+    const all = await this.getParametros()
+    await Promise.all(all.map((p) => deleteDocument('mco_parametros_frete', p.id)))
   },
 }
 
@@ -591,6 +606,11 @@ export const alimentacaoValoresService = {
         await createDocument('mco_alimentacao_valores', val)
       }
     }
+  },
+
+  async deleteAll(): Promise<void> {
+    const all = await this.getValores()
+    await Promise.all(all.map((v) => deleteDocument('mco_alimentacao_valores', v.id)))
   },
 }
 

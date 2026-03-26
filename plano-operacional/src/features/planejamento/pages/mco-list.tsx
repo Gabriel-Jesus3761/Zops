@@ -3,6 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+
+/** Parseia 'yyyy-MM-dd' em hora local (evita bug de fuso UTC→local). */
+const parseDateLocal = (s: string): Date => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
 import { toast } from 'sonner'
 import {
   Plus,
@@ -640,9 +646,10 @@ export function MCOListPage() {
                         variant="outline"
                         className={cn(
                           "font-bold text-[10px] px-2 py-0.5",
-                          mco.porte === 'Grande' && "bg-purple-500/10 border-purple-500/30 text-purple-700",
-                          mco.porte === 'Médio' && "bg-blue-500/10 border-blue-500/30 text-blue-700",
-                          mco.porte === 'Pequeno' && "bg-gray-500/10 border-gray-500/30 text-gray-700"
+                          mco.porte === 'MEGA' && "bg-red-500/10 border-red-500/30 text-red-700",
+                          mco.porte === 'G' && "bg-purple-500/10 border-purple-500/30 text-purple-700",
+                          mco.porte === 'M' && "bg-blue-500/10 border-blue-500/30 text-blue-700",
+                          (mco.porte === 'P' || mco.porte === 'PP') && "bg-gray-500/10 border-gray-500/30 text-gray-700"
                         )}
                       >
                         {mco.porte || "-"}
@@ -650,7 +657,7 @@ export function MCOListPage() {
                     </TableCell>
                     <TableCell className="py-2">
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(mco.data_inicial), "dd/MM/yy", { locale: ptBR })}
+                        {format(parseDateLocal(mco.data_inicial), "dd/MM/yy", { locale: ptBR })}
                       </span>
                     </TableCell>
                     <TableCell className="py-2">

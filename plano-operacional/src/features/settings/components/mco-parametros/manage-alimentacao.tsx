@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, AlertCircle, Save, UtensilsCrossed } from 'lucide-react'
+import { Loader2, AlertCircle, Save, UtensilsCrossed, Trash2, RotateCcw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -11,6 +11,7 @@ import {
   jornadasService,
   tipoCalculoConfigService,
 } from '../../services/mco-parametros.service'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 import type { AlimentacaoValorFormData } from '../../types/mco-parametros'
 import { getIconByName } from '../../pages/etapas-projeto'
 import { toast } from 'sonner'
@@ -134,6 +135,7 @@ export function ManageAlimentacao() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-alimentacao-valores'] })
+      mcoCalculatorService.clearCache()
       setHasChanges(false)
       toast.success('Valores de alimentação salvos com sucesso!')
     },
@@ -142,6 +144,42 @@ export function ManageAlimentacao() {
       toast.error(error instanceof Error ? error.message : 'Erro ao salvar valores')
     },
   })
+
+  const deletarMutation = useMutation({
+    mutationFn: () => alimentacaoValoresService.deleteAll(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mco-alimentacao-valores'] })
+      mcoCalculatorService.clearCache()
+      const reset: Record<string, number> = {}
+      categorias?.forEach((categoria) => {
+        if (categoria.tipo_calculo === 'go_live') {
+          jornadas?.forEach((jornada) => { reset[`${categoria.id}-${jornada.id}`] = 0 })
+        } else {
+          reset[`${categoria.id}-null`] = 0
+        }
+      })
+      setValores(reset)
+      setHasChanges(false)
+      toast.success('Valores de alimentação deletados do banco com sucesso!')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Erro ao deletar valores')
+    },
+  })
+
+  const handleResetar = () => {
+    const reset: Record<string, number> = {}
+    categorias?.forEach((categoria) => {
+      if (categoria.tipo_calculo === 'go_live') {
+        jornadas?.forEach((jornada) => { reset[`${categoria.id}-${jornada.id}`] = 0 })
+      } else {
+        reset[`${categoria.id}-null`] = 0
+      }
+    })
+    setValores(reset)
+    setHasChanges(true)
+    toast.info('Valores zerados. Clique em "Salvar Alterações" para confirmar no banco.')
+  }
 
   const handleValorChange = (key: string, value: number) => {
     setValores((prev) => ({ ...prev, [key]: value }))
@@ -184,9 +222,29 @@ export function ManageAlimentacao() {
 
   return (
     <div className="space-y-6">
-      {/* Action Button */}
-      <div className="flex justify-end">
-        <Button onClick={() => saveMutation.mutate()} disabled={!hasChanges || saveMutation.isPending}>
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={handleResetar}
+          disabled={deletarMutation.isPending || saveMutation.isPending}
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Resetar Valores
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={() => deletarMutation.mutate()}
+          disabled={deletarMutation.isPending || saveMutation.isPending}
+        >
+          {deletarMutation.isPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="mr-2 h-4 w-4" />
+          )}
+          Deletar Valores
+        </Button>
+        <Button onClick={() => saveMutation.mutate()} disabled={(!hasChanges && !!valoresExistentes?.length) || saveMutation.isPending}>
           {saveMutation.isPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (

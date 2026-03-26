@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Zap, Loader2, AlertCircle, Save } from 'lucide-react'
+import { Zap, Loader2, AlertCircle, Save, Trash2, RotateCcw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table'
 import { NumberInput } from '@/components/ui/number-input'
 import { cargosService, jornadasService, categoriasRemuneracaoService, cargoJornadaCategoriaService } from '../services/mco-parametros.service'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 import { toast } from 'sonner'
 
 export function DiariasGoLivePage() {
@@ -54,7 +55,7 @@ export function DiariasGoLivePage() {
       const novosValores = Object.entries(valores)
         .filter(([, valor]) => valor > 0)
         .map(([key, valor]) => {
-          const [cargoId, jornadaId] = key.split('-')
+          const [cargoId, jornadaId] = key.split('___')
           return {
             cargo_id: cargoId,
             jornada_id: jornadaId,
@@ -70,6 +71,7 @@ export function DiariasGoLivePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-cargo-jornada-categoria-valores'] })
+      mcoCalculatorService.clearCache()
       setHasChanges(false)
       toast.success('Valores de Go Live salvos com sucesso!')
     },
@@ -88,7 +90,7 @@ export function DiariasGoLivePage() {
 
       cargos.forEach((cargo) => {
         jornadas.forEach((jornada) => {
-          const key = `${cargo.id}-${jornada.id}`
+          const key = `${cargo.id}___${jornada.id}`
           const existingValor = valoresExistentes.find(
             (v) =>
               v.cargo_id === cargo.id &&
@@ -104,9 +106,45 @@ export function DiariasGoLivePage() {
   }, [valoresExistentes, cargos, jornadas, categorias])
 
   const handleValorChange = (cargoId: string, jornadaId: string, valor: number) => {
-    const key = `${cargoId}-${jornadaId}`
+    const key = `${cargoId}___${jornadaId}`
     setValores((prev) => ({ ...prev, [key]: valor }))
     setHasChanges(true)
+  }
+
+  const deletarMutation = useMutation({
+    mutationFn: async () => {
+      const categoriaGoLive = categorias?.find((c) => c.tipo_calculo === 'go_live')
+      if (!categoriaGoLive) throw new Error('Categoria Go Live não encontrada')
+      await cargoJornadaCategoriaService.deleteByCategoria(categoriaGoLive.id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mco-cargo-jornada-categoria-valores'] })
+      mcoCalculatorService.clearCache()
+      const resetValues: Record<string, number> = {}
+      cargos?.forEach((cargo) => {
+        jornadas?.forEach((jornada) => {
+          resetValues[`${cargo.id}___${jornada.id}`] = 0
+        })
+      })
+      setValores(resetValues)
+      setHasChanges(false)
+      toast.success('Valores deletados do banco com sucesso!')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Erro ao deletar valores')
+    },
+  })
+
+  const handleResetar = () => {
+    const resetValues: Record<string, number> = {}
+    cargos?.forEach((cargo) => {
+      jornadas?.forEach((jornada) => {
+        resetValues[`${cargo.id}___${jornada.id}`] = 0
+      })
+    })
+    setValores(resetValues)
+    setHasChanges(true)
+    toast.info('Valores zerados. Clique em "Salvar Alterações" para confirmar no banco.')
   }
 
   const handleSave = () => {
@@ -171,18 +209,42 @@ export function DiariasGoLivePage() {
             Configure os valores das diárias Go Live por cargo e jornada
           </p>
         </div>
-        <Button
-          onClick={handleSave}
-          disabled={!hasChanges || salvarMutation.isPending}
-          style={{ cursor: 'pointer' }}
-        >
-          {salvarMutation.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          Salvar Alterações
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleResetar}
+            disabled={deletarMutation.isPending || salvarMutation.isPending}
+            style={{ cursor: 'pointer' }}
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Resetar Valores
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => deletarMutation.mutate()}
+            disabled={deletarMutation.isPending || salvarMutation.isPending}
+            style={{ cursor: 'pointer' }}
+          >
+            {deletarMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
+            Deletar Valores
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={!hasChanges || salvarMutation.isPending}
+            style={{ cursor: 'pointer' }}
+          >
+            {salvarMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Salvar Alterações
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -220,7 +282,7 @@ export function DiariasGoLivePage() {
                       </div>
                     </TableCell>
                     {sortedJornadas?.map((jornada) => {
-                      const key = `${cargo.id}-${jornada.id}`
+                      const key = `${cargo.id}___${jornada.id}`
                       return (
                         <TableCell key={jornada.id} className="p-2">
                           <NumberInput

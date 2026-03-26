@@ -19,6 +19,7 @@ import {
   cargoTimesService,
   categoriasRemuneracaoService,
 } from '../../services/mco-parametros.service'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 import { toast } from 'sonner'
 
 export function ManageEtapaTimes() {
@@ -141,6 +142,7 @@ export function ManageEtapaTimes() {
       })
 
       await Promise.all(promises)
+      mcoCalculatorService.clearCache()
       setHasChanges(false)
       toast.success('Configurações salvas com sucesso!')
     } catch (error) {

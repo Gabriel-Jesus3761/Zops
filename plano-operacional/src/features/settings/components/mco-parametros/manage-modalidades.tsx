@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Workflow,
@@ -41,6 +42,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { modalidadesService } from '../../services/mco-parametros.service'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 import type { Modalidade, ModalidadeFormData } from '../../types/mco-parametros'
 import { toast } from 'sonner'
 
@@ -55,6 +57,25 @@ const formatCurrency = (value: number) => {
     style: 'currency',
     currency: 'BRL',
   }).format(value)
+}
+
+const formatCurrencyInput = (value: number) => {
+  if (value === 0) return ''
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+const handleCurrencyChange = (
+  e: React.ChangeEvent<HTMLInputElement>,
+  onChange: (value: number) => void
+) => {
+  const numericValue = e.target.value.replace(/\D/g, '')
+  const cents = parseInt(numericValue, 10) || 0
+  onChange(cents / 100)
 }
 
 export function ManageModalidades() {
@@ -75,6 +96,7 @@ export function ManageModalidades() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-modalidades'] })
       handleClose()
+      mcoCalculatorService.clearCache()
       toast.success('Modalidade criada com sucesso!')
     },
     onError: (error) => {
@@ -88,6 +110,7 @@ export function ManageModalidades() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-modalidades'] })
       handleClose()
+      mcoCalculatorService.clearCache()
       toast.success('Modalidade atualizada com sucesso!')
     },
     onError: (error) => {
@@ -100,6 +123,7 @@ export function ManageModalidades() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-modalidades'] })
       setDeletingModalidade(null)
+      mcoCalculatorService.clearCache()
       toast.success('Modalidade excluída com sucesso!')
     },
     onError: (error) => {
@@ -294,12 +318,13 @@ export function ManageModalidades() {
             <div className="space-y-2">
               <Label>TPV por Terminal (R$)</Label>
               <Input
-                type="number"
-                value={formData.tpv_por_terminal}
-                onChange={(e) =>
-                  setFormData({ ...formData, tpv_por_terminal: Number(e.target.value) })
-                }
-                placeholder="15000"
+                type="text"
+                inputMode="numeric"
+                value={formatCurrencyInput(formData.tpv_por_terminal)}
+                onChange={(e) => handleCurrencyChange(e, (value) =>
+                  setFormData({ ...formData, tpv_por_terminal: value })
+                )}
+                placeholder="R$ 0,00"
               />
               <p className="text-xs text-muted-foreground">
                 Taxa por Volume - valor médio transacionado por terminal

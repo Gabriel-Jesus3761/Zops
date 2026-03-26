@@ -5,6 +5,7 @@ import { SettingsPage } from '@/features/settings'
 import { GestaoInventarioPage, ConfiguracoesSistema } from '@/features/gestao-inventario'
 import { PlanoOperacionalPage } from '@/features/plano-operacional'
 import { MCOListPage, MCOWizardPage, MCOResumoPage, MCODetalhesPage, MCOEditPage, HubspotPage } from '@/features/planejamento'
+import { CalculadoraPage } from '@/features/calculadora'
 import { CadastroHome, AtivoSerializadoForm, AtivoNaoSerializadoForm, InsumoForm, SkuPatternsConfig, SerialPatternsConfig, SkuBindingsConfig, GestaoAtivosTeste } from '@/features/cadastro'
 import { MainLayout } from '@/components/layouts/main-layout'
 import { DefaultErrorFallback } from '@/components/ui/error-boundary'
@@ -108,6 +109,10 @@ export const router = createBrowserRouter([
       {
         path: 'logistica/gestao-ativos',
         element: <GestaoInventarioPage />,
+      },
+      {
+        path: 'calculadora',
+        element: <CalculadoraPage />,
       },
       {
         path: 'configuracoes',

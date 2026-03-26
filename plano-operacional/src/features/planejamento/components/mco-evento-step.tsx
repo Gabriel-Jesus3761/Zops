@@ -11,7 +11,8 @@ import {
   CheckCircle2,
   ChevronsUpDown,
   Loader2,
-  HelpCircle
+  HelpCircle,
+  Moon,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
@@ -34,10 +35,11 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  SimpleTooltip,
 } from '@/components/ui/tooltip'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { format, addDays, isSameDay } from 'date-fns'
+import { format, addDays, subDays, isSameDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import type { MCOEventoData, Sessao } from '../types/mco.types'
@@ -373,12 +375,20 @@ export function MCOEventoStep({ data: rawData, onChange, onValidationChange }: M
     if (masked.length === 5) {
       const [hora, min] = masked.split(':').map(Number)
       const novasSessoes = [...data.sessoes]
-      const dataBase = novasSessoes[index].dataHoraFim || new Date()
+      const dataInicio = novasSessoes[index].dataHoraInicio || new Date()
 
-      novasSessoes[index] = {
-        ...novasSessoes[index],
-        dataHoraFim: new Date(dataBase.getFullYear(), dataBase.getMonth(), dataBase.getDate(), hora, min),
+      const horaInicioTotal = dataInicio.getHours() * 60 + dataInicio.getMinutes()
+      const horaFimTotal = hora * 60 + min
+
+      let dataFim = new Date(
+        dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate(), hora, min
+      )
+      // Auto-detecta madrugada: fim ≤ início → encerra no dia seguinte
+      if (horaFimTotal <= horaInicioTotal) {
+        dataFim = addDays(dataFim, 1)
       }
+
+      novasSessoes[index] = { ...novasSessoes[index], dataHoraFim: dataFim }
       onChange({ ...data, sessoes: novasSessoes })
     }
   }
@@ -426,6 +436,27 @@ export function MCOEventoStep({ data: rawData, onChange, onValidationChange }: M
 
     onChange({ ...data, sessoes: novasSessoes })
     toast.success('Horários aplicados')
+  }
+
+  // Retorna true quando dataHoraFim cai no dia seguinte ao dataHoraInicio
+  const isMadrugada = (sessao: Sessao): boolean => {
+    if (!sessao.dataHoraInicio || !sessao.dataHoraFim) return false
+    return !isSameDay(sessao.dataHoraInicio, sessao.dataHoraFim)
+  }
+
+  const handleToggleMadrugada = (index: number) => {
+    const novasSessoes = [...data.sessoes]
+    const sessao = novasSessoes[index]
+    if (!sessao.dataHoraInicio || !sessao.dataHoraFim) return
+
+    const ativa = isMadrugada(sessao)
+    novasSessoes[index] = {
+      ...sessao,
+      dataHoraFim: ativa
+        ? subDays(sessao.dataHoraFim, 1)  // desativa: volta ao mesmo dia
+        : addDays(sessao.dataHoraFim, 1), // ativa: avança para o dia seguinte
+    }
+    onChange({ ...data, sessoes: novasSessoes })
   }
 
   // Agrupar sessões por mês
@@ -786,7 +817,7 @@ export function MCOEventoStep({ data: rawData, onChange, onValidationChange }: M
                                   placeholder="18:00"
                                   value={sessaoTexts[globalIndex]?.horaFim || ""}
                                   onChange={(e) => handleSessaoHoraFimChange(globalIndex, e.target.value)}
-                                  className="text-sm h-8"
+                                  className={cn("text-sm h-8", isMadrugada(sessao) && "border-blue-400 focus-visible:ring-blue-300")}
                                   maxLength={5}
                                 />
                               </div>
@@ -800,6 +831,47 @@ export function MCOEventoStep({ data: rawData, onChange, onValidationChange }: M
                               >
                                 <X className="h-3.5 w-3.5" />
                               </Button>
+                            </div>
+
+                            {/* Encerramento dia seguinte (somente leitura) */}
+                            {isMadrugada(sessao) && sessao.dataHoraFim && (
+                              <div className="ml-8 mt-1.5">
+                                <SimpleTooltip
+                                  content={`O evento começa em ${format(sessao.dataHoraInicio!, "EEE dd 'de' MMM", { locale: ptBR })} e encerra na madrugada de ${format(sessao.dataHoraFim, "EEE dd 'de' MMM", { locale: ptBR })}. O horário de encerramento pertence ao dia seguinte.`}
+                                  side="right"
+                                  delayDuration={150}
+                                >
+                                  <div className="inline-flex cursor-help items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 select-none">
+                                    <Moon className="h-3 w-3 shrink-0" />
+                                    <span className="capitalize">
+                                      {format(sessao.dataHoraFim, "EEE dd", { locale: ptBR })}
+                                    </span>
+                                    <span className="text-blue-300">·</span>
+                                    <span>{sessaoTexts[globalIndex]?.horaFim || "--:--"}</span>
+                                  </div>
+                                </SimpleTooltip>
+                              </div>
+                            )}
+
+                            {/* Toggle madrugada */}
+                            <div className="mt-1.5 ml-8">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleMadrugada(globalIndex)}
+                                className={cn(
+                                  'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium transition-colors cursor-pointer',
+                                  isMadrugada(sessao)
+                                    ? 'bg-blue-50 text-blue-600'
+                                    : 'text-muted-foreground hover:bg-muted'
+                                )}
+                              >
+                                {isMadrugada(sessao) ? (
+                                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                                ) : (
+                                  <Moon className="h-3.5 w-3.5 shrink-0" />
+                                )}
+                                Evento encerra no dia seguinte (madrugada)
+                              </button>
                             </div>
 
                             {temErro && (

@@ -1,8 +1,13 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+
+const parseDateLocal = (s: string): Date => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +23,8 @@ import {
   Plane,
   Coffee,
   Truck,
+  ChevronDown,
+  ChevronUp,
   type LucideIcon
 } from 'lucide-react'
 import { mcoService } from '@/features/planejamento/services/mco.service'
@@ -48,6 +55,8 @@ export default function MCOResumoPage() {
   const navigate = useNavigate()
   const contentRef = useRef<HTMLDivElement>(null)
 
+  const [showDebug, setShowDebug] = useState(false)
+
   const { data: mco, isLoading } = useQuery({
     queryKey: ['mco-resumo', id],
     queryFn: async () => {
@@ -71,7 +80,7 @@ export default function MCOResumoPage() {
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), 'dd/MM/yyyy', { locale: ptBR })
+      return format(parseDateLocal(dateStr), 'dd/MM/yyyy', { locale: ptBR })
     } catch {
       return dateStr
     }
@@ -84,7 +93,7 @@ export default function MCOResumoPage() {
 
   const calcularTotalDias = () => {
     if (!mco?.data_inicial || !mco?.data_final) return 1
-    return differenceInDays(new Date(mco.data_final), new Date(mco.data_inicial)) + 1
+    return differenceInDays(parseDateLocal(mco.data_final), parseDateLocal(mco.data_inicial)) + 1
   }
 
   const getTipoAtendimentoLabel = (tipo?: string) => {
@@ -113,21 +122,26 @@ export default function MCOResumoPage() {
     }
   }
 
-  // Construir categorias de custo (simulação simplificada)
+  // Helper: parseia string de faturamento em formato brasileiro ("R$ 100.000,00") para número
+  const parseFaturamento = (str: string | undefined): number => {
+    if (!str) return 0
+    const clean = str.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.')
+    return parseFloat(clean) || 0
+  }
+
+  // Construir categorias de custo a partir do breakdown_custos salvo
   const buildCategorias = (): CategoriaCusto[] => {
     if (!mco) return []
 
-    const custoTotal = mco.custo_operacional_efetivo || 0
+    const bd = mco.breakdown_custos as Record<string, any> | undefined
     const periodoTotal = calcularTotalDias()
 
-    // Distribuição estimada dos custos (valores fictícios para demonstração)
-    const maoDeObra = custoTotal * 0.50
-    const alimentacao = custoTotal * 0.15
-    const hospedagem = custoTotal * 0.15
-    const viagem = custoTotal * 0.08
-    const transporte = custoTotal * 0.07
-    const dayOff = custoTotal * 0.03
-    const frete = custoTotal * 0.02
+    const maoDeObra = bd?.mao_de_obra?.total ?? 0
+    const alimentacao = bd?.alimentacao?.total ?? 0
+    const hospedagem = bd?.hospedagem?.total ?? 0
+    const viagem = bd?.viagem?.total ?? 0
+    const transporte = bd?.transporte_local?.total ?? 0
+    const frete = bd?.frete?.total ?? 0
 
     return [
       {
@@ -138,10 +152,10 @@ export default function MCOResumoPage() {
         cor: 'text-blue-600',
         itens: maoDeObra > 0 ? [{
           nome: 'Equipe técnica e operacional',
-          quantidade: 8,
-          valorUnitario: maoDeObra / 8,
+          quantidade: 1,
+          valorUnitario: maoDeObra,
           valorTotal: maoDeObra,
-          unidade: 'pessoa'
+          unidade: 'lote'
         }] : []
       },
       {
@@ -152,10 +166,10 @@ export default function MCOResumoPage() {
         cor: 'text-orange-600',
         itens: alimentacao > 0 ? [{
           nome: 'Alimentação da equipe durante o evento',
-          quantidade: 8,
-          valorUnitario: alimentacao / 8,
+          quantidade: mco.num_sessoes ?? 1,
+          valorUnitario: alimentacao / (mco.num_sessoes || 1),
           valorTotal: alimentacao,
-          unidade: 'pessoa'
+          unidade: 'sessão'
         }] : []
       },
       {
@@ -167,7 +181,7 @@ export default function MCOResumoPage() {
         itens: hospedagem > 0 ? [{
           nome: `Hospedagem da equipe em ${mco.cidade}/${mco.uf}`,
           quantidade: periodoTotal,
-          valorUnitario: hospedagem / periodoTotal,
+          valorUnitario: periodoTotal > 0 ? hospedagem / periodoTotal : hospedagem,
           valorTotal: hospedagem,
           unidade: 'diária'
         }] : []
@@ -179,7 +193,7 @@ export default function MCOResumoPage() {
         icon: Plane,
         cor: 'text-sky-600',
         itens: viagem > 0 ? [{
-          nome: `Viagem da equipe até ${mco.cidade}/${mco.uf}`,
+          nome: `Viagem ${bd?.viagem?.modal ? `(${bd.viagem.modal})` : ''} até ${mco.cidade}/${mco.uf}`,
           quantidade: 1,
           valorUnitario: viagem,
           valorTotal: viagem,
@@ -195,23 +209,9 @@ export default function MCOResumoPage() {
         itens: transporte > 0 ? [{
           nome: 'Transporte local durante o evento',
           quantidade: periodoTotal,
-          valorUnitario: transporte / periodoTotal,
+          valorUnitario: periodoTotal > 0 ? transporte / periodoTotal : transporte,
           valorTotal: transporte,
           unidade: 'dia'
-        }] : []
-      },
-      {
-        key: 'day_off',
-        label: 'Day Off',
-        valor: dayOff,
-        icon: Coffee,
-        cor: 'text-amber-600',
-        itens: dayOff > 0 ? [{
-          nome: 'Folga Remunerada',
-          quantidade: 1,
-          valorUnitario: dayOff,
-          valorTotal: dayOff,
-          unidade: 'lote'
         }] : []
       },
       {
@@ -359,7 +359,7 @@ export default function MCOResumoPage() {
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Faturamento:</span>
-                  <span className="font-medium">{formatCurrency(parseFloat(mco.faturamento_estimado || '0'))}</span>
+                  <span className="font-medium">{formatCurrency(parseFaturamento(mco.faturamento_estimado))}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Porte:</span>
@@ -472,6 +472,166 @@ export default function MCOResumoPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Detalhes Técnicos do Cálculo */}
+      {(() => {
+        const bd = mco?.breakdown_custos as Record<string, any> | undefined
+        const dbg = bd?._debug as Record<string, any> | undefined
+        if (!dbg) return null
+
+        const handleDownload = () => {
+          const data = JSON.stringify({ codigo: mco?.codigo, nome_evento: mco?.nome_evento, breakdown_custos: bd }, null, 2)
+          const blob = new Blob([data], { type: 'application/json' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `mco-${mco?.codigo ?? 'debug'}-calculo.json`
+          a.click()
+          URL.revokeObjectURL(url)
+        }
+
+        const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+
+        return (
+          <Card className="print:hidden bg-muted/30 border-dashed">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs text-muted-foreground uppercase flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" />
+                  Detalhes Técnicos do Cálculo
+                </CardTitle>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleDownload} className="h-7 text-xs gap-1">
+                    <Download className="h-3 w-3" />
+                    Baixar JSON
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowDebug(v => !v)} className="h-7 text-xs gap-1">
+                    {showDebug ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    {showDebug ? 'Recolher' : 'Expandir'}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+
+            {showDebug && (
+              <CardContent className="text-xs space-y-4">
+                {/* Identificação */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {[
+                    ['Cluster', `${dbg.cluster_tamanho} – ${dbg.cluster_nome}`],
+                    ['Tipo Atendimento', dbg.tipo_atendimento],
+                    ['Filial Origem', dbg.filial_origem_nome ?? 'Matriz'],
+                    ['Distância', `${dbg.distancia_km} km`],
+                  ].map(([label, value]) => (
+                    <div key={label} className="bg-background rounded p-2 border">
+                      <p className="text-muted-foreground">{label}</p>
+                      <p className="font-semibold">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Condições e Dias */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {[
+                    ['Dias Viagem', dbg.dias_viagem],
+                    ['Dias Setup', dbg.dias_setup],
+                    ['Sessões (Go Live)', dbg.num_sessoes],
+                    ['Dias Hospedagem', dbg.dias_hospedagem],
+                  ].map(([label, value]) => (
+                    <div key={label} className="bg-background rounded p-2 border">
+                      <p className="text-muted-foreground">{label}</p>
+                      <p className="font-semibold">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Dimensionamento */}
+                <div>
+                  <p className="font-semibold mb-1 text-muted-foreground uppercase tracking-wide">
+                    Dimensionamento — TPV: {fmt(dbg.tpv_usado)} / terminal · Terminais: {dbg.terminais_calculados} · Equipe total: {dbg.total_equipe} (Alpha: {dbg.total_alpha})
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-muted/50 text-left">
+                          <th className="p-1.5 border">Cargo</th>
+                          <th className="p-1.5 border">Time</th>
+                          <th className="p-1.5 border text-center">Qtd</th>
+                          <th className="p-1.5 border text-right">Rate Viagem</th>
+                          <th className="p-1.5 border text-right">Custo Viagem</th>
+                          <th className="p-1.5 border text-right">Rate Setup</th>
+                          <th className="p-1.5 border text-right">Custo Setup</th>
+                          <th className="p-1.5 border text-right">Rate Go Live</th>
+                          <th className="p-1.5 border text-right">Custo Go Live</th>
+                          <th className="p-1.5 border text-right font-bold">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(dbg.mdo_detalhes ?? {}).map(([sigla, d]: [string, any]) => (
+                          <tr key={sigla} className="border-b hover:bg-muted/20">
+                            <td className="p-1.5 border font-medium">{sigla}</td>
+                            <td className="p-1.5 border">{dbg.dimensionamento?.[sigla]?.time ?? '—'}</td>
+                            <td className="p-1.5 border text-center">{d.quantidade}</td>
+                            <td className="p-1.5 border text-right">{fmt(d.rate_viagem)}</td>
+                            <td className="p-1.5 border text-right">{fmt(d.custo_viagem)}</td>
+                            <td className="p-1.5 border text-right">{fmt(d.rate_setup)}</td>
+                            <td className="p-1.5 border text-right">{fmt(d.custo_setup)}</td>
+                            <td className="p-1.5 border text-right">{fmt(d.rate_go_live)}</td>
+                            <td className="p-1.5 border text-right">{fmt(d.custo_go_live)}</td>
+                            <td className="p-1.5 border text-right font-bold">{fmt(d.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Motores individuais */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <div className="bg-background rounded p-2 border space-y-0.5">
+                    <p className="font-semibold text-muted-foreground uppercase tracking-wide">Alimentação</p>
+                    <p>Valor/dia: {fmt(dbg.alimentacao_valor_dia)}</p>
+                    <p>Total equipe: {dbg.alimentacao_total_equipe}</p>
+                    <p>Sessões: {dbg.num_sessoes}</p>
+                  </div>
+                  <div className="bg-background rounded p-2 border space-y-0.5">
+                    <p className="font-semibold text-muted-foreground uppercase tracking-wide">Viagem</p>
+                    <p>Custo/km: {fmt(dbg.viagem_custo_por_km)}</p>
+                    <p>Distância: {dbg.distancia_km} km</p>
+                    <p>Pessoas Alpha: {dbg.total_alpha}</p>
+                    <p>Inclui: {dbg.incluir_viagem ? 'Sim' : 'Não'}</p>
+                    <p>Pernoite: {dbg.sessao_requer_pernoite ? 'Sim' : 'Não'}</p>
+                  </div>
+                  <div className="bg-background rounded p-2 border space-y-0.5">
+                    <p className="font-semibold text-muted-foreground uppercase tracking-wide">Transporte Local</p>
+                    <p>Valor/dia: {fmt(dbg.transporte_valor_diario)}</p>
+                    <p>Alpha: {dbg.dimensionamento ? Object.entries(dbg.dimensionamento).filter(([, v]: any) => v.time === 'lideranca').reduce((s, [, v]: any) => s + v.quantidade, 0) : 0}</p>
+                    <p>Dias: {dbg.transporte_dias}</p>
+                    <p>Inclui: {dbg.incluir_transporte ? 'Sim' : 'Não'}</p>
+                  </div>
+                  <div className="bg-background rounded p-2 border space-y-0.5">
+                    <p className="font-semibold text-muted-foreground uppercase tracking-wide">Hospedagem</p>
+                    <p>Diária: {fmt(dbg.hospedagem_valor_diaria)}</p>
+                    <p>Alpha: {dbg.hospedagem_total_alpha}</p>
+                    <p>Dias: {dbg.hospedagem_dias}</p>
+                    <p>Inclui: {dbg.incluir_hospedagem ? 'Sim' : 'Não'}</p>
+                  </div>
+                  <div className="bg-background rounded p-2 border space-y-0.5 col-span-2 md:col-span-2">
+                    <p className="font-semibold text-muted-foreground uppercase tracking-wide">Flags Atendimento</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {(['incluir_viagem', 'incluir_setup', 'incluir_hospedagem', 'incluir_transporte', 'incluir_frete'] as const).map(flag => (
+                        <span key={flag} className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', dbg[flag] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}>
+                          {flag.replace('incluir_', '')}: {dbg[flag] ? '✓' : '✗'}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )
+      })()}
 
       {/* Estilos de impressão */}
       <style>{`

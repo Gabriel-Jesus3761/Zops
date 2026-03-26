@@ -1,23 +1,23 @@
+import { useQuery } from '@tanstack/react-query'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { AlertTriangle, Users, Truck, Settings2, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, Users, Truck, Settings2, CheckCircle2, Loader2 } from 'lucide-react'
 import type { MCOOperacionalData } from '../types/mco.types'
+import { modalidadesService } from '@/features/settings/services/mco-parametros.service'
 
 interface MCOOperacionalStepProps {
   data: MCOOperacionalData
   onChange: (data: MCOOperacionalData) => void
 }
 
-// Modalidades mock (até integrar com Firebase)
-const modalidades = [
-  { id: '1', nome: 'Self-Service', descricao: 'Cliente opera sozinho' },
-  { id: '2', nome: 'Atendimento Assistido', descricao: 'Com equipe de suporte' },
-  { id: '3', nome: 'Híbrido', descricao: 'Misto de operações' },
-  { id: '4', nome: 'Cashless', descricao: 'Pagamento digital' },
-]
-
 export function MCOOperacionalStep({ data, onChange }: MCOOperacionalStepProps) {
+  const { data: todasModalidades = [], isLoading: isLoadingModalidades } = useQuery({
+    queryKey: ['mco-modalidades'],
+    queryFn: () => modalidadesService.getModalidades(),
+  })
+
+  const modalidades = todasModalidades.filter(m => m.ativo)
   const modalidadeSelecionada = modalidades.find(m => m.id === data.modalidadeId)
   const alertaLogisticaSemTime = data.logistica && !data.timeTecnico
 
@@ -54,14 +54,26 @@ export function MCOOperacionalStep({ data, onChange }: MCOOperacionalStepProps) 
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {modalidades.map((mod) => (
-                  <SelectItem key={mod.id} value={mod.id}>
-                    <div className="flex flex-col items-start text-left gap-0.5">
-                      <span className="font-medium text-foreground">{mod.nome}</span>
-                      <span className="text-xs text-muted-foreground">{mod.descricao}</span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {isLoadingModalidades ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : modalidades.length === 0 ? (
+                  <div className="py-4 text-center text-sm text-muted-foreground">
+                    Nenhuma modalidade cadastrada
+                  </div>
+                ) : (
+                  modalidades.map((mod) => (
+                    <SelectItem key={mod.id} value={mod.id}>
+                      <div className="flex flex-col items-start text-left gap-0.5">
+                        <span className="font-medium text-foreground">{mod.nome}</span>
+                        {mod.descricao && (
+                          <span className="text-xs text-muted-foreground">{mod.descricao}</span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
             {!data.modalidadeId && (

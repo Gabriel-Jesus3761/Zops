@@ -875,7 +875,7 @@ export function ManageClients() {
                     id="city"
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    placeholder="São Paulo"
+                    placeholder="Ex: São Paulo"
                     className="h-10"
                   />
                 </div>

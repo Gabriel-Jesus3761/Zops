@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+
+const parseDateLocal = (s: string): Date => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Loader2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -37,14 +42,13 @@ export function MCOEditPage() {
   // Inicializar dados quando o MCO for carregado
   useEffect(() => {
     if (mco && !eventoData) {
-      // Converter dados do MCO para o formato do wizard
-      // Reconstruir datasEvento a partir de data_inicial e data_final
+      // Reconstruir datasEvento com fuso local (evita bug UTC→local)
       const datasEvento: Date[] = []
       if (mco.data_inicial) {
-        datasEvento.push(new Date(mco.data_inicial))
+        datasEvento.push(parseDateLocal(mco.data_inicial))
       }
       if (mco.data_final && mco.data_final !== mco.data_inicial) {
-        datasEvento.push(new Date(mco.data_final))
+        datasEvento.push(parseDateLocal(mco.data_final))
       }
 
       setEventoData({
@@ -52,22 +56,22 @@ export function MCOEditPage() {
         clienteNome: mco.cliente_nome || '',
         nomeEvento: mco.nome_evento,
         datasEvento,
-        sessoes: [], // TODO: carregar sessões se disponíveis
+        sessoes: [],
         faturamentoEstimado: mco.faturamento_estimado,
         publicoEstimado: mco.publico_estimado || '',
-        localEvento: '', // TODO: carregar local se disponível
+        localEvento: '',
         localEventoNome: `${mco.cidade} - ${mco.uf}`,
         uf: mco.uf,
         cidade: mco.cidade,
       })
 
-      // Dados operacionais padrão (podem ser expandidos conforme necessário)
+      // Restaurar dados operacionais dos valores salvos no MCO
       setOperacionalData({
-        timeTecnico: true,
-        logistica: true,
-        clienteForneceAlimentacaoGoLive: false,
-        clienteForneceHospedagemAlpha: false,
-        modalidadeId: '',
+        timeTecnico: mco.time_tecnico ?? true,
+        logistica: mco.logistica ?? true,
+        clienteForneceAlimentacaoGoLive: mco.cliente_fornece_alimentacao ?? false,
+        clienteForneceHospedagemAlpha: mco.cliente_fornece_hospedagem ?? false,
+        modalidadeId: mco.modalidade_id ?? '',
       })
     }
   }, [mco, eventoData])

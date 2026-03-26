@@ -68,6 +68,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { clustersService, clusterTamanhosService } from '../../services/mco-parametros.service'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 import type { Cluster, ClusterFormData, ClusterTamanhoConfig, ClusterTamanhoConfigFormData } from '../../types/mco-parametros'
 import { CLUSTER_LABELS_DEFAULT } from '../../types/mco-parametros'
 import { toast } from 'sonner'
@@ -231,6 +232,7 @@ export function ManageClusters() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-clusters'] })
       handleClose()
+      mcoCalculatorService.clearCache()
       toast.success('Cluster criado com sucesso!')
     },
     onError: (error) => {
@@ -244,6 +246,7 @@ export function ManageClusters() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-clusters'] })
       handleClose()
+      mcoCalculatorService.clearCache()
       toast.success('Cluster atualizado com sucesso!')
     },
     onError: (error) => {
@@ -256,6 +259,7 @@ export function ManageClusters() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-clusters'] })
       setDeletingCluster(null)
+      mcoCalculatorService.clearCache()
       toast.success('Cluster excluído com sucesso!')
     },
     onError: (error) => {
@@ -281,6 +285,7 @@ export function ManageClusters() {
       queryClient.invalidateQueries({ queryKey: ['mco-cluster-tamanhos'] })
       setIsAddingTamanho(false)
       setTamanhoFormData(emptyTamanhoFormData)
+      mcoCalculatorService.clearCache()
       toast.success('Tamanho criado com sucesso!')
     },
     onError: (error) => {
@@ -295,6 +300,7 @@ export function ManageClusters() {
       queryClient.invalidateQueries({ queryKey: ['mco-cluster-tamanhos'] })
       setEditingTamanho(null)
       setTamanhoFormData(emptyTamanhoFormData)
+      mcoCalculatorService.clearCache()
       toast.success('Tamanho atualizado com sucesso!')
     },
     onError: (error) => {
@@ -307,6 +313,7 @@ export function ManageClusters() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-cluster-tamanhos'] })
       setDeletingTamanho(null)
+      mcoCalculatorService.clearCache()
       toast.success('Tamanho excluído com sucesso!')
     },
     onError: (error) => {
@@ -721,7 +728,7 @@ export function ManageClusters() {
                       <Input
                         value={tamanhoFormData.sigla}
                         onChange={(e) => setTamanhoFormData({ ...tamanhoFormData, sigla: e.target.value.toUpperCase() })}
-                        placeholder="PP"
+                        placeholder="Ex: PP"
                         maxLength={10}
                       />
                     </div>
@@ -730,7 +737,7 @@ export function ManageClusters() {
                       <Input
                         value={tamanhoFormData.nome}
                         onChange={(e) => setTamanhoFormData({ ...tamanhoFormData, nome: e.target.value })}
-                        placeholder="Pequeno Porte"
+                        placeholder="Ex: Pequeno Porte"
                       />
                     </div>
                   </div>

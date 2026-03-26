@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, AlertCircle, Save } from 'lucide-react'
+import { Loader2, AlertCircle, Save, Trash2, RotateCcw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -25,6 +25,7 @@ import {
 } from '../services/mco-parametros.service'
 import { getIconByName } from './etapas-projeto'
 import { toast } from 'sonner'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 
 export function ParametrosDiariasPage() {
   const [valores, setValores] = useState<Record<string, number>>({})
@@ -88,6 +89,7 @@ export function ParametrosDiariasPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-cargo-categoria-valores'] })
+      mcoCalculatorService.clearCache()
       toast.success('Valores salvos com sucesso!')
     },
     onError: (error) => {
@@ -123,6 +125,7 @@ export function ParametrosDiariasPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-cargo-jornada-categoria-valores'] })
+      mcoCalculatorService.clearCache()
       setHasChangesGoLive(false)
       toast.success('Valores de Go Live salvos com sucesso!')
     },
@@ -130,6 +133,74 @@ export function ParametrosDiariasPage() {
       toast.error(error instanceof Error ? error.message : 'Erro ao salvar valores de Go Live')
     },
   })
+
+  const deletarCategoriaMutation = useMutation({
+    mutationFn: async ({ categoriaId }: { categoriaId: string }) => {
+      await cargoCategoriaValorService.deleteByCategoria(categoriaId)
+    },
+    onSuccess: (_, { categoriaId }) => {
+      queryClient.invalidateQueries({ queryKey: ['mco-cargo-categoria-valores'] })
+      mcoCalculatorService.clearCache()
+      setValores((prev) => {
+        const next = { ...prev }
+        cargos?.forEach((cargo) => {
+          next[`${cargo.id}___${categoriaId}`] = 0
+        })
+        return next
+      })
+      toast.success('Valores deletados do banco com sucesso!')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Erro ao deletar valores')
+    },
+  })
+
+  const handleResetarCategoria = (categoriaId: string) => {
+    setValores((prev) => {
+      const next = { ...prev }
+      cargos?.forEach((cargo) => {
+        next[`${cargo.id}___${categoriaId}`] = 0
+      })
+      return next
+    })
+    toast.info('Valores zerados. Clique em "Salvar" para confirmar no banco.')
+  }
+
+  const deletarGoLiveMutation = useMutation({
+    mutationFn: async () => {
+      const categoriaGoLive = categorias?.find((c) => c.tipo_calculo === 'go_live')
+      if (!categoriaGoLive) throw new Error('Categoria Go Live não encontrada')
+      await cargoJornadaCategoriaService.deleteByCategoria(categoriaGoLive.id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mco-cargo-jornada-categoria-valores'] })
+      mcoCalculatorService.clearCache()
+      const resetValues: Record<string, number> = {}
+      cargos?.forEach((cargo) => {
+        jornadas?.forEach((jornada) => {
+          resetValues[`${cargo.id}___${jornada.id}`] = 0
+        })
+      })
+      setValoresGoLive(resetValues)
+      setHasChangesGoLive(false)
+      toast.success('Valores de Go Live deletados do banco com sucesso!')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Erro ao deletar valores de Go Live')
+    },
+  })
+
+  const handleResetarGoLive = () => {
+    const resetValues: Record<string, number> = {}
+    cargos?.forEach((cargo) => {
+      jornadas?.forEach((jornada) => {
+        resetValues[`${cargo.id}___${jornada.id}`] = 0
+      })
+    })
+    setValoresGoLive(resetValues)
+    setHasChangesGoLive(true)
+    toast.info('Valores zerados. Clique em "Salvar" para confirmar no banco.')
+  }
 
   // Load existing values into state
   useEffect(() => {
@@ -301,7 +372,29 @@ export function ParametrosDiariasPage() {
                   })}
                 </div>
 
-                <div className="flex justify-end pt-4 border-t">
+                <div className="flex items-center justify-end gap-2 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleResetarCategoria(categoria.id)}
+                    disabled={deletarCategoriaMutation.isPending || salvarMutation.isPending}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Resetar Valores
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => deletarCategoriaMutation.mutate({ categoriaId: categoria.id })}
+                    disabled={deletarCategoriaMutation.isPending || salvarMutation.isPending}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {deletarCategoriaMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="mr-2 h-4 w-4" />
+                    )}
+                    Deletar Valores
+                  </Button>
                   <Button
                     onClick={() => handleSave(categoria.id)}
                     disabled={salvarMutation.isPending}
@@ -329,18 +422,42 @@ export function ParametrosDiariasPage() {
                       <p className="text-sm text-muted-foreground">
                         Configure os valores das diárias Go Live por cargo e jornada de trabalho
                       </p>
-                      <Button
-                        onClick={handleSaveGoLive}
-                        disabled={!hasChangesGoLive || salvarGoLiveMutation.isPending}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {salvarGoLiveMutation.isPending ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Save className="mr-2 h-4 w-4" />
-                        )}
-                        Salvar {categoriaGoLive.nome}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={handleResetarGoLive}
+                          disabled={deletarGoLiveMutation.isPending || salvarGoLiveMutation.isPending}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Resetar Valores
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => deletarGoLiveMutation.mutate()}
+                          disabled={deletarGoLiveMutation.isPending || salvarGoLiveMutation.isPending}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {deletarGoLiveMutation.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="mr-2 h-4 w-4" />
+                          )}
+                          Deletar Valores
+                        </Button>
+                        <Button
+                          onClick={handleSaveGoLive}
+                          disabled={!hasChangesGoLive || salvarGoLiveMutation.isPending}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {salvarGoLiveMutation.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Save className="mr-2 h-4 w-4" />
+                          )}
+                          Salvar {categoriaGoLive.nome}
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="rounded-md border overflow-x-auto">

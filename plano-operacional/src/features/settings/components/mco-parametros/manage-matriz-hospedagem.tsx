@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Save, BedDouble, Info, Loader2 } from 'lucide-react'
+import { Save, BedDouble, Info, Loader2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
@@ -189,6 +189,11 @@ export function ManageMatrizHospedagem() {
     }
   }
 
+  const handleResetar = () => {
+    setEditedValues({})
+    toast.info('Alterações descartadas.')
+  }
+
   const isLoading = loadingCargos || loadingClusters || loadingElegibilidade
   const hasChanges = Object.keys(editedValues).length > 0
   const changesCount = Object.keys(editedValues).length
@@ -217,18 +222,29 @@ export function ManageMatrizHospedagem() {
           </div>
         </div>
         {hasChanges && (
-          <Button
-            size="sm"
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-          >
-            {saveMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            Salvar ({changesCount})
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetar}
+              disabled={saveMutation.isPending}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Resetar Valores
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+            >
+              {saveMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Salvar ({changesCount})
+            </Button>
+          </div>
         )}
       </div>
 

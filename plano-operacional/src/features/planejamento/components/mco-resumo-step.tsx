@@ -22,21 +22,12 @@ interface MCOResumoStepProps {
   operacionalData: MCOOperacionalData
 }
 
-// Modalidades mock (mesmo do operacional step)
-const modalidades = [
-  { id: '1', nome: 'Self-Service' },
-  { id: '2', nome: 'Atendimento Assistido' },
-  { id: '3', nome: 'Híbrido' },
-  { id: '4', nome: 'Cashless' },
-]
-
 const getDiaSemanaAbreviado = (date: Date): string => {
   const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab']
   return dias[date.getDay()]
 }
 
 export function MCOResumoStep({ eventoData, operacionalData }: MCOResumoStepProps) {
-  const modalidade = modalidades.find(m => m.id === operacionalData.modalidadeId)
 
   const calcularTicketMedio = (): string => {
     const faturamentoStr = eventoData.faturamentoEstimado
@@ -205,7 +196,7 @@ export function MCOResumoStep({ eventoData, operacionalData }: MCOResumoStepProp
           <div>
             <p className="text-sm text-muted-foreground">Modalidade</p>
             <p className="text-lg font-semibold text-foreground">
-              {modalidade?.nome || "Não selecionado"}
+              {operacionalData.modalidadeId || "Não selecionado"}
             </p>
           </div>
 

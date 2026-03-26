@@ -52,6 +52,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { filiaisService } from '../../services/mco-parametros.service'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 import type { FilialZig, FilialZigFormData, ClusterTamanho } from '../../types/mco-parametros'
 import { CLUSTER_LABELS } from '../../types/mco-parametros'
 import { toast } from 'sonner'
@@ -123,6 +124,7 @@ export function ManageFiliais() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-filiais'] })
       handleClose()
+      mcoCalculatorService.clearCache()
       toast.success('Filial criada com sucesso!')
     },
     onError: (error) => {
@@ -136,6 +138,7 @@ export function ManageFiliais() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-filiais'] })
       handleClose()
+      mcoCalculatorService.clearCache()
       toast.success('Filial atualizada com sucesso!')
     },
     onError: (error) => {
@@ -148,6 +151,7 @@ export function ManageFiliais() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-filiais'] })
       setDeletingFilial(null)
+      mcoCalculatorService.clearCache()
       toast.success('Filial excluída com sucesso!')
     },
     onError: (error) => {
@@ -329,8 +333,9 @@ export function ManageFiliais() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead>Nome</TableHead>
-                <TableHead>Cidade/UF</TableHead>
+                <TableHead>Região</TableHead>
+                <TableHead>Cidade</TableHead>
+                <TableHead>UF</TableHead>
                 <TableHead className="text-center">Raio (km)</TableHead>
                 <TableHead className="text-center">Cluster Limite</TableHead>
                 <TableHead className="text-center">Ativo</TableHead>
@@ -340,7 +345,7 @@ export function ManageFiliais() {
             <TableBody>
               {filiais.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     Nenhuma filial cadastrada. Clique em "Nova Filial" para adicionar.
                   </TableCell>
                 </TableRow>
@@ -350,14 +355,17 @@ export function ManageFiliais() {
                     key={filial.id}
                     className={index % 2 === 0 ? 'bg-white dark:bg-card' : 'bg-muted/30'}
                   >
+                    <TableCell className="text-muted-foreground">
+                      {filial.regiao || '—'}
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {filial.is_matriz && <Navigation className="h-4 w-4 text-blue-600" />}
-                        {filial.nome}
+                        {filial.cidade}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {filial.cidade}/{filial.uf}
+                    <TableCell className="text-muted-foreground">
+                      {filial.uf}
                     </TableCell>
                     <TableCell className="text-center">{filial.raio_atuacao_km} km</TableCell>
                     <TableCell className="text-center">
@@ -442,7 +450,7 @@ export function ManageFiliais() {
                         className="h-9"
                       />
                     </div>
-                    <div className="max-h-[300px] overflow-y-auto">
+                    <div className="max-h-[300px] overflow-y-auto" onWheel={(e) => e.stopPropagation()}>
                       {buscandoEndereco && (
                         <div className="flex items-center justify-center p-4">
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

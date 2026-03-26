@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+
+const parseDateLocal = (s: string): Date => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
 import {
   MapPin,
   Users,
@@ -159,7 +164,7 @@ function MCOCard({ mco, onEdit, onView, onViewResumo, onDelete }: {
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
             <span>
-              {format(new Date(mco.data_inicial), "dd/MM/yy", { locale: ptBR })}
+              {format(parseDateLocal(mco.data_inicial), "dd/MM/yy", { locale: ptBR })}
             </span>
           </div>
         </div>
@@ -170,9 +175,10 @@ function MCOCard({ mco, onEdit, onView, onViewResumo, onDelete }: {
             variant="outline"
             className={cn(
               "text-[10px] px-2 py-0.5",
-              mco.porte === 'Grande' && "bg-purple-500/10 border-purple-500/30 text-purple-700",
-              mco.porte === 'Médio' && "bg-blue-500/10 border-blue-500/30 text-blue-700",
-              mco.porte === 'Pequeno' && "bg-gray-500/10 border-gray-500/30 text-gray-700"
+              mco.porte === 'MEGA' && "bg-red-500/10 border-red-500/30 text-red-700",
+              mco.porte === 'G' && "bg-purple-500/10 border-purple-500/30 text-purple-700",
+              mco.porte === 'M' && "bg-blue-500/10 border-blue-500/30 text-blue-700",
+              (mco.porte === 'P' || mco.porte === 'PP') && "bg-gray-500/10 border-gray-500/30 text-gray-700"
             )}
           >
             {mco.porte || "-"}

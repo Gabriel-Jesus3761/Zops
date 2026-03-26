@@ -45,6 +45,8 @@ import {
   ManageAlimentacao,
   ManageBaseCustoHospedagem,
   ManageMatrizHospedagem,
+  ManageTransporte,
+  ManageFrete,
 } from '../components/mco-parametros'
 import { ParametrosDiariasPage } from './parametros-diarias'
 import { EtapasProjetoPage } from './etapas-projeto'
@@ -268,7 +270,7 @@ export function SettingsPage() {
                     <button
                       onClick={() => toggleSubGroup(item.key)}
                       className={cn(
-                        'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                        'flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                         hasActiveChild
                           ? 'text-primary'
                           : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -293,7 +295,7 @@ export function SettingsPage() {
                               key={child.key}
                               onClick={() => handleNavClick(child.path)}
                               className={cn(
-                                'flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors',
+                                'flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors',
                                 isActive
                                   ? 'bg-primary text-primary-foreground font-medium'
                                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -317,7 +319,7 @@ export function SettingsPage() {
                   key={item.key}
                   onClick={() => handleNavClick(item.path)}
                   className={cn(
-                    'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    'flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-primary text-primary-foreground'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -550,6 +552,7 @@ export function SettingsPage() {
               <h2 className="text-2xl font-bold tracking-tight">Parâmetros de Transporte</h2>
               <p className="text-muted-foreground">Configurar custos de transporte por modalidade e distância</p>
             </div>
+            <ManageTransporte />
           </div>
         )
 
@@ -561,6 +564,7 @@ export function SettingsPage() {
               <h2 className="text-2xl font-bold tracking-tight">Parâmetros de Frete</h2>
               <p className="text-muted-foreground">Configurar custos de frete por filial e cluster</p>
             </div>
+            <ManageFrete />
           </div>
         )
 

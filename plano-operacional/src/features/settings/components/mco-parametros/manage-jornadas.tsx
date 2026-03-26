@@ -59,6 +59,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { jornadasService } from '../../services/mco-parametros.service'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 import type { Jornada, JornadaFormData } from '../../types/mco-parametros'
 import { toast } from 'sonner'
 
@@ -159,6 +160,7 @@ export function ManageJornadas() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-jornadas'] })
       handleClose()
+      mcoCalculatorService.clearCache()
       toast.success('Jornada criada com sucesso!')
     },
     onError: (error) => {
@@ -172,6 +174,7 @@ export function ManageJornadas() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-jornadas'] })
       handleClose()
+      mcoCalculatorService.clearCache()
       toast.success('Jornada atualizada com sucesso!')
     },
     onError: (error) => {
@@ -184,6 +187,7 @@ export function ManageJornadas() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-jornadas'] })
       setDeletingJornada(null)
+      mcoCalculatorService.clearCache()
       toast.success('Jornada excluída com sucesso!')
     },
     onError: (error) => {

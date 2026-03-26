@@ -69,6 +69,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { cargosService, cargoTimesService, cargoCalculoParametrosService } from '../../services/mco-parametros.service'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 import type { Cargo, CargoFormData, CargoTimeConfig, CargoTimeConfigFormData, CargoCalculoParametrosFormData } from '../../types/mco-parametros'
 import { CARGO_TIME_LABELS } from '../../types/mco-parametros'
 import { toast } from 'sonner'
@@ -305,6 +306,7 @@ export function ManageCargos() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-cargos'] })
       handleClose()
+      mcoCalculatorService.clearCache()
       toast.success('Cargo criado com sucesso!')
     },
     onError: (error) => {
@@ -318,6 +320,7 @@ export function ManageCargos() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-cargos'] })
       handleClose()
+      mcoCalculatorService.clearCache()
       toast.success('Cargo atualizado com sucesso!')
     },
     onError: (error) => {
@@ -330,6 +333,7 @@ export function ManageCargos() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-cargos'] })
       setDeletingCargo(null)
+      mcoCalculatorService.clearCache()
       toast.success('Cargo excluído com sucesso!')
     },
     onError: (error) => {
@@ -355,6 +359,7 @@ export function ManageCargos() {
       queryClient.invalidateQueries({ queryKey: ['mco-cargo-times'] })
       setIsAddingTime(false)
       setTimeFormData(emptyTimeFormData)
+      mcoCalculatorService.clearCache()
       toast.success('Time criado com sucesso!')
     },
     onError: (error) => {
@@ -369,6 +374,7 @@ export function ManageCargos() {
       queryClient.invalidateQueries({ queryKey: ['mco-cargo-times'] })
       setEditingTime(null)
       setTimeFormData(emptyTimeFormData)
+      mcoCalculatorService.clearCache()
       toast.success('Time atualizado com sucesso!')
     },
     onError: (error) => {
@@ -381,6 +387,7 @@ export function ManageCargos() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-cargo-times'] })
       setDeletingTime(null)
+      mcoCalculatorService.clearCache()
       toast.success('Time excluído com sucesso!')
     },
     onError: (error) => {
@@ -423,6 +430,7 @@ export function ManageCargos() {
     mutationFn: cargoCalculoParametrosService.saveParametros,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mco-cargo-calculo-parametros'] })
+      mcoCalculatorService.clearCache()
       toast.success('Parâmetros de cálculo salvos com sucesso!')
     },
     onError: (error) => {
@@ -897,7 +905,7 @@ export function ManageCargos() {
                     <Input
                       value={timeFormData.nome}
                       onChange={(e) => setTimeFormData({ ...timeFormData, nome: e.target.value })}
-                      placeholder="Time Alpha"
+                      placeholder="Ex: Time Alpha"
                     />
                   </div>
                   <div className="flex justify-end gap-2 mt-3">

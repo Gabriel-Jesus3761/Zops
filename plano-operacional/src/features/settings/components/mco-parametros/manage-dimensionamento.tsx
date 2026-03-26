@@ -6,6 +6,8 @@ import {
   Save,
   Calculator,
   Info,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -35,6 +37,7 @@ import {
   clusterTamanhosService,
 } from '../../services/mco-parametros.service'
 import { toast } from 'sonner'
+import { mcoCalculatorService } from '@/features/planejamento/services/mco-calculator.service'
 
 interface MatrixCell {
   cargoClusterId?: string
@@ -186,6 +189,34 @@ export function ManageDimensionamento() {
     return sortedCargos.filter((cargo) => isCargoCalculado(cargo.id))
   }, [sortedCargos, isCargoCalculado])
 
+  const deletarMutation = useMutation({
+    mutationFn: () => cargoClusterService.deleteAll(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mco-cargo-cluster'] })
+      mcoCalculatorService.clearCache()
+      setHasChanges(false)
+      toast.success('Dimensionamentos deletados do banco com sucesso!')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Erro ao deletar valores')
+    },
+  })
+
+  const handleResetar = () => {
+    setMatrixData((prev) => {
+      const next: MatrixData = {}
+      Object.keys(prev).forEach((clusterId) => {
+        next[clusterId] = {}
+        Object.keys(prev[clusterId]).forEach((cargoId) => {
+          next[clusterId][cargoId] = { ...prev[clusterId][cargoId], quantidade: 0 }
+        })
+      })
+      return next
+    })
+    setHasChanges(true)
+    toast.info('Quantidades zeradas. Clique em "Salvar Alterações" para confirmar no banco.')
+  }
+
   const handleCellChange = (clusterId: string, cargoId: string, value: string) => {
     const quantidade = parseInt(value, 10) || 0
     setMatrixData((prev) => ({
@@ -251,6 +282,7 @@ export function ManageDimensionamento() {
 
       await Promise.all(promises)
       setHasChanges(false)
+      mcoCalculatorService.clearCache()
       toast.success('Dimensionamentos salvos com sucesso!')
     } catch (error) {
       toast.error('Erro ao salvar dimensionamentos')
@@ -269,25 +301,49 @@ export function ManageDimensionamento() {
             Configure a quantidade de cada cargo por cluster. Os cargos marcados como "Calculado" têm suas quantidades determinadas automaticamente pela medida @divisao_time baseada no faturamento, modalidade e ITE do cluster.
           </p>
         </div>
-        {hasChanges && (
+        <div className="flex items-center gap-2">
           <Button
-            onClick={handleSave}
-            disabled={createMutation.isPending || updateMutation.isPending}
+            variant="outline"
+            onClick={handleResetar}
+            disabled={deletarMutation.isPending || createMutation.isPending || updateMutation.isPending}
             className="gap-2"
           >
-            {(createMutation.isPending || updateMutation.isPending) ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Salvar Alterações
-              </>
-            )}
+            <RotateCcw className="h-4 w-4" />
+            Resetar Valores
           </Button>
-        )}
+          <Button
+            variant="destructive"
+            onClick={() => deletarMutation.mutate()}
+            disabled={deletarMutation.isPending || createMutation.isPending || updateMutation.isPending}
+            className="gap-2"
+          >
+            {deletarMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Deletar Valores
+          </Button>
+          {hasChanges && (
+            <Button
+              onClick={handleSave}
+              disabled={deletarMutation.isPending || createMutation.isPending || updateMutation.isPending}
+              className="gap-2"
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Salvar Alterações
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Loading */}
