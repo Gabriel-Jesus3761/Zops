@@ -1,4 +1,4 @@
-import type { MCOEventoData, MCOOperacionalData } from '../types/mco.types'
+import type { MCOEventoData, MCOOperacionalData, Sessao } from '../types/mco.types'
 import {
   clustersService,
   cargosService,
@@ -503,12 +503,13 @@ class MCOCalculatorService {
     dimensionamento: Record<string, { cargo: Cargo; quantidade: number }>,
     diasViagem: number,
     diasSetup: number,
-    numSessoes: number,
-    sessaoJornadaId: string | undefined,
+    sessoes: Sessao[],
     viagemTimeSiglas: Set<string>,
     setupTimeSiglas: Set<string>
   ): { resultado: CustoBreakdown['mao_de_obra']; detalhes: NonNullable<CustoBreakdown['_debug']>['mdo_detalhes'] } {
     if (!operacionalData.timeTecnico) return { resultado: { total: 0 }, detalhes: {} }
+
+    const numSessoes = sessoes.length
 
     const categorias = this.cache.categorias || []
     const catViagem = categorias.find((c) => c.tipo_calculo === 'viagem')
@@ -526,7 +527,6 @@ class MCOCalculatorService {
       let custoCargo = 0
       let rateViagem = cargo.valor_diaria
       let rateSetup = cargo.valor_diaria
-      let rateGoLive = cargo.valor_diaria
 
       // Verificar participação nas etapas conforme "Times por Etapa"
       const participaViagem = viagemTimeSiglas.size === 0 || viagemTimeSiglas.has(cargo.time)
@@ -554,29 +554,43 @@ class MCOCalculatorService {
         custoCargo += quantidade * rateSetup * diasSetup
       }
 
-      // Dias de Go Live (um por sessão) — todos os cargos participam
-      if (numSessoes > 0) {
-        if (catGoLive) {
-          // Tentar rate específico da jornada
-          if (sessaoJornadaId) {
+      // Go Live — calculado por sessão, usando a jornada de cada uma
+      let custoGoLive = 0
+      let rateGoLiveDebug = cargo.valor_diaria
+
+      if (numSessoes > 0 && catGoLive) {
+        sessoes.forEach((sessao) => {
+          let rate = cargo.valor_diaria
+
+          // Tentar rate específico da jornada da sessão
+          if (sessao.jornadaId) {
             const val = cargoJornadaCat.find(
               (v) =>
                 v.cargo_id === cargo.id &&
-                v.jornada_id === sessaoJornadaId &&
+                v.jornada_id === sessao.jornadaId &&
                 v.categoria_id === catGoLive.id
             )
-            if (val) rateGoLive = val.valor
+            if (val) rate = val.valor
           }
+
           // Fallback: qualquer rate go_live do cargo
-          if (rateGoLive === cargo.valor_diaria) {
+          if (rate === cargo.valor_diaria) {
             const val = cargoJornadaCat.find(
               (v) => v.cargo_id === cargo.id && v.categoria_id === catGoLive.id
             )
-            if (val) rateGoLive = val.valor
+            if (val) rate = val.valor
           }
-        }
-        custoCargo += quantidade * rateGoLive * numSessoes
+
+          custoGoLive += quantidade * rate
+          rateGoLiveDebug = rate
+        })
+      } else if (numSessoes > 0) {
+        // catGoLive não configurado: fallback pela diária do cargo
+        custoGoLive = quantidade * cargo.valor_diaria * numSessoes
+        rateGoLiveDebug = cargo.valor_diaria
       }
+
+      custoCargo += custoGoLive
 
       custos[sigla] = custoCargo
       total += custoCargo
@@ -589,8 +603,8 @@ class MCOCalculatorService {
         custo_viagem: participaViagem ? quantidade * rateViagem * diasViagem : 0,
         rate_setup: rateSetup,
         custo_setup: participaSetup ? quantidade * rateSetup * diasSetup : 0,
-        rate_go_live: rateGoLive,
-        custo_go_live: quantidade * rateGoLive * numSessoes,
+        rate_go_live: rateGoLiveDebug,
+        custo_go_live: custoGoLive,
         total: custoCargo,
       }
     })
@@ -686,8 +700,7 @@ class MCOCalculatorService {
     dimensionamento: Record<string, { cargo: Cargo; quantidade: number }>,
     diasViagem: number,
     diasSetup: number,
-    numSessoes: number,
-    sessaoJornadaId?: string,
+    sessoes: Sessao[],
     incluirViagem?: boolean,
     incluirSetup?: boolean,
     viagemTimeSiglas?: Set<string>
@@ -733,22 +746,29 @@ class MCOCalculatorService {
       custoAlimSetup = totalAlpha * diasSetup * valorSetup
     }
 
-    // GO LIVE: desconto se cliente fornece
+    // GO LIVE: calculado por sessão, usando a jornada de cada uma
     let custoAlimGoLive = 0
     let valorDia = 0
     if (!operacionalData.clienteForneceAlimentacaoGoLive && catGoLive) {
-      if (sessaoJornadaId) {
-        const val = alimentacaoValores.find(
-          (v) => v.categoria_id === catGoLive.id && v.jornada_id === sessaoJornadaId
-        )
-        valorDia = val?.valor ?? 0
-      }
-      if (!valorDia) {
-        // Fallback: primeiro valor go_live disponível
-        const val = alimentacaoValores.find((v) => v.categoria_id === catGoLive.id)
-        valorDia = val?.valor ?? 0
-      }
-      custoAlimGoLive = totalEquipe * valorDia * numSessoes
+      sessoes.forEach((sessao) => {
+        let valorSessao = 0
+
+        if (sessao.jornadaId) {
+          const val = alimentacaoValores.find(
+            (v) => v.categoria_id === catGoLive.id && v.jornada_id === sessao.jornadaId
+          )
+          valorSessao = val?.valor ?? 0
+        }
+
+        if (!valorSessao) {
+          // Fallback: primeiro valor go_live disponível (sem jornada específica)
+          const val = alimentacaoValores.find((v) => v.categoria_id === catGoLive.id)
+          valorSessao = val?.valor ?? 0
+        }
+
+        custoAlimGoLive += totalEquipe * valorSessao
+        valorDia = valorSessao
+      })
     }
 
     const total = custoAlimViagem + custoAlimSetup + custoAlimGoLive
@@ -938,15 +958,13 @@ class MCOCalculatorService {
     })
 
     // 10. Calcular cada motor
-    const sessaoJornadaId = sessoesValidas[0]?.jornadaId
 
     const { resultado: mao_de_obra, detalhes: mdo_detalhes } = this.calcularMaoDeObra(
       operacionalData,
       dimensionamento,
       diasViagem,
       diasSetup,
-      numSessoes,
-      sessaoJornadaId,
+      sessoesValidas,
       viagemTimeSiglas,
       setupTimeSiglas
     )
@@ -966,8 +984,7 @@ class MCOCalculatorService {
       dimensionamento,
       diasViagem,
       diasSetup,
-      numSessoes,
-      sessaoJornadaId,
+      sessoesValidas,
       incluirViagem,
       incluirSetup,
       viagemTimeSiglas

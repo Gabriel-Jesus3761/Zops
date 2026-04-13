@@ -44,6 +44,8 @@ import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import type { MCOEventoData, Sessao } from '../types/mco.types'
 import { clientsService } from '@/features/settings/services/clients.service'
+import { locaisEventosService } from '@/features/settings/services/locais-eventos.service'
+import type { LocalEvento } from '@/features/settings/types/local-evento'
 import { searchNominatim, enrichLocalFromOverpass, extractUF } from '../services/geocoding.service'
 import type { NominatimResult } from '../services/geocoding.service'
 
@@ -220,6 +222,26 @@ export function MCOEventoStep({ data: rawData, onChange, onValidationChange }: M
     queryKey: ['clients'],
     queryFn: () => clientsService.getClients(),
   })
+
+  // Buscar locais salvos em Locais de Projetos
+  const { data: locaisSalvos } = useQuery({
+    queryKey: ['locais-eventos'],
+    queryFn: () => locaisEventosService.getLocais(),
+    staleTime: 60_000,
+  })
+
+  // Locais salvos filtrados pelo termo de busca
+  const locaisSalvosFiltrados = useMemo<LocalEvento[]>(() => {
+    if (!locaisSalvos || localSearchTerm.length < 3) return []
+    const termo = localSearchTerm.toLowerCase()
+    return locaisSalvos.filter(
+      (l) =>
+        l.ativo &&
+        (l.nome.toLowerCase().includes(termo) ||
+          l.cidade.toLowerCase().includes(termo) ||
+          (l.apelido ?? '').toLowerCase().includes(termo))
+    )
+  }, [locaisSalvos, localSearchTerm])
 
   // Filtrar clientes
   const clientesFiltrados = useMemo(() => {
@@ -1027,25 +1049,95 @@ export function MCOEventoStep({ data: rawData, onChange, onValidationChange }: M
                     />
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
-                    {buscandoLocal && (
-                      <div className="flex items-center justify-center p-4">
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        <span className="ml-2 text-sm text-muted-foreground">Buscando...</span>
-                      </div>
-                    )}
-                    {!buscandoLocal && locaisEncontrados.length === 0 && localSearchTerm.length >= 3 && (
-                      <div className="p-4 text-sm text-center text-muted-foreground">
-                        Nenhum local encontrado.
-                      </div>
-                    )}
-                    {!buscandoLocal && localSearchTerm.length > 0 && localSearchTerm.length < 3 && (
+                    {localSearchTerm.length > 0 && localSearchTerm.length < 3 && (
                       <div className="p-4 text-sm text-center text-muted-foreground">
                         Digite pelo menos 3 caracteres para buscar.
                       </div>
                     )}
-                    {!buscandoLocal && locaisEncontrados.length > 0 && (
-                      <div className="py-1">
-                        {locaisEncontrados.map((local) => (
+
+                    {/* Locais salvos em Locais de Projetos */}
+                    {locaisSalvosFiltrados.length > 0 && (
+                      <div>
+                        <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 border-b">
+                          Locais Salvos
+                        </div>
+                        {locaisSalvosFiltrados.map((local) => (
+                          <button
+                            key={local.id}
+                            type="button"
+                            onClick={() => {
+                              const dadosAtualizados = {
+                                ...data,
+                                localEventoNome: local.apelido || local.nome,
+                                localEvento: local.apelido || local.nome,
+                                cidade: local.cidade,
+                                uf: local.uf,
+                                localEventoDetalhes: {
+                                  nome: local.nome,
+                                  cidade: local.cidade,
+                                  uf: local.uf,
+                                  cep: local.cep || undefined,
+                                  logradouro: local.logradouro || undefined,
+                                  numero: local.numero || undefined,
+                                  bairro: local.bairro || undefined,
+                                  latitude: local.latitude ?? undefined,
+                                  longitude: local.longitude ?? undefined,
+                                  capacidade_maxima: local.capacidade_maxima ?? undefined,
+                                  tem_cobertura: local.tem_cobertura,
+                                  tem_ar_condicionado: local.tem_ar_condicionado,
+                                  tem_estacionamento: local.tem_estacionamento,
+                                  tem_acessibilidade: local.tem_acessibilidade,
+                                  tipo: local.tipo ?? 'outro',
+                                },
+                              }
+                              onChange(dadosAtualizados)
+                              setOpenLocalPopover(false)
+                              setLocalSearchTerm("")
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors cursor-pointer text-left"
+                          >
+                            <Check
+                              className={cn(
+                                "h-4 w-4 shrink-0",
+                                data.localEventoNome === (local.apelido || local.nome)
+                                  ? "opacity-100 text-primary"
+                                  : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-foreground truncate">
+                                  {local.apelido || local.nome}
+                                </span>
+                                <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                                  Salvo
+                                </span>
+                              </div>
+                              <span className="text-xs text-muted-foreground truncate">
+                                {local.cidade}, {local.uf}
+                                {local.latitude && local.longitude ? ' · com coordenadas' : ''}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Resultados do Nominatim */}
+                    {(buscandoLocal || locaisEncontrados.length > 0) && (
+                      <div>
+                        {locaisSalvosFiltrados.length > 0 && (
+                          <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 border-b">
+                            Outros Locais
+                          </div>
+                        )}
+                        {buscandoLocal && (
+                          <div className="flex items-center justify-center p-4">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            <span className="ml-2 text-sm text-muted-foreground">Buscando...</span>
+                          </div>
+                        )}
+                        {!buscandoLocal && locaisEncontrados.map((local) => (
                           <button
                             key={local.place_id}
                             type="button"
@@ -1057,7 +1149,6 @@ export function MCOEventoStep({ data: rawData, onChange, onValidationChange }: M
                                            local.address?.municipality || ''
                               const uf = extractUF(local.address)
 
-                              // Preenche campos imediatamente com dados do Nominatim
                               const dadosAtualizados = {
                                 ...data,
                                 localEventoNome: nomeLocal,
@@ -1069,11 +1160,9 @@ export function MCOEventoStep({ data: rawData, onChange, onValidationChange }: M
                               setOpenLocalPopover(false)
                               setLocalSearchTerm("")
 
-                              // Enrich via Overpass — salvar em Locais de Projetos acontece ao criar MCO
                               setEnrichingLocal(true)
                               try {
                                 const detalhes = await enrichLocalFromOverpass(local)
-                                // Armazena os detalhes para serem salvos ao criar MCO
                                 onChange({ ...dadosAtualizados, localEventoDetalhes: detalhes })
                               } catch (error) {
                                 console.error('Erro ao enriquecer local:', error)
@@ -1099,6 +1188,12 @@ export function MCOEventoStep({ data: rawData, onChange, onValidationChange }: M
                             </div>
                           </button>
                         ))}
+                      </div>
+                    )}
+
+                    {!buscandoLocal && locaisEncontrados.length === 0 && locaisSalvosFiltrados.length === 0 && localSearchTerm.length >= 3 && (
+                      <div className="p-4 text-sm text-center text-muted-foreground">
+                        Nenhum local encontrado.
                       </div>
                     )}
                   </div>
