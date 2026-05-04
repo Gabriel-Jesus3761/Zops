@@ -60,6 +60,8 @@ export interface MCOOperacionalData {
   clienteForneceAlimentacaoGoLive: boolean
   clienteForneceHospedagemAlpha: boolean
   modalidadeId: string
+  clienteDeterminouTerminais: boolean | null
+  quantidadeTerminaisCliente: number | null
 }
 
 export type WizardStep = 'evento' | 'operacional' | 'resumo'

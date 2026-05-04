@@ -72,6 +72,8 @@ export function MCOEditPage() {
         clienteForneceAlimentacaoGoLive: mco.cliente_fornece_alimentacao ?? false,
         clienteForneceHospedagemAlpha: mco.cliente_fornece_hospedagem ?? false,
         modalidadeId: mco.modalidade_id ?? '',
+        clienteDeterminouTerminais: null,
+        quantidadeTerminaisCliente: null,
       })
     }
   }, [mco, eventoData])

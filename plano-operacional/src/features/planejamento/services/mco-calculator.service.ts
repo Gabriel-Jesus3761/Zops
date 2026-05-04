@@ -349,7 +349,8 @@ class MCOCalculatorService {
     cluster: Cluster,
     faturamento: number,
     numSessoes: number,
-    modalidadeId: string
+    modalidadeId: string,
+    terminaisOverride?: number | null
   ): Record<string, { cargo: Cargo; quantidade: number }> {
     if (!this.cache.cargoClusters || !this.cache.cargos) return {}
 
@@ -365,7 +366,10 @@ class MCOCalculatorService {
     const maxPorLider = this.cache.parametrosGerais?.max_tecnicos_por_lider || 4
 
     const faturamentoPorSessao = faturamento / (numSessoes > 0 ? numSessoes : 1)
-    const terminais = Math.round(faturamentoPorSessao / tpv)
+    const terminais =
+      terminaisOverride != null && terminaisOverride > 0
+        ? terminaisOverride
+        : Math.round(faturamentoPorSessao / tpv)
 
     let qtdeLTT = 0
     let qtdeTCA = 0
@@ -937,11 +941,16 @@ class MCOCalculatorService {
     const diasHospedagem = diasSetup + (numSessoes > 1 ? numSessoes : 0)
 
     // 7. Dimensionamento dinâmico (TPV → terminais → TCA/LTT)
+    const terminaisOverride =
+      operacionalData.clienteDeterminouTerminais === true
+        ? operacionalData.quantidadeTerminaisCliente
+        : null
     const dimensionamento = this.getDimensionamento(
       cluster,
       faturamento,
       numSessoes,
-      operacionalData.modalidadeId
+      operacionalData.modalidadeId,
+      terminaisOverride
     )
 
     // 8. Carregar times por etapa (fonte de verdade para participação)
@@ -1026,7 +1035,10 @@ class MCOCalculatorService {
       ? Math.min(...this.cache.modalidades.map((m) => m.tpv_por_terminal).filter((v) => v > 0))
       : 0
     const tpvUsado = modalidade?.tpv_por_terminal || tpvFallbackDebug
-    const terminaisCalc = tpvUsado > 0 ? Math.round(faturamento / (numSessoes || 1) / tpvUsado) : 0
+    const terminaisCalc =
+      terminaisOverride != null && terminaisOverride > 0
+        ? terminaisOverride
+        : tpvUsado > 0 ? Math.round(faturamento / (numSessoes || 1) / tpvUsado) : 0
     let totalEquipeDebug = 0
     const dimDebug: Record<string, { time: string; quantidade: number }> = {}
     Object.entries(dimensionamento).forEach(([sigla, { cargo, quantidade }]) => {

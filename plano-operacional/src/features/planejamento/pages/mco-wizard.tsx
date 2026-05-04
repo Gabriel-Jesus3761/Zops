@@ -37,6 +37,8 @@ const initialOperacionalData: MCOOperacionalData = {
   clienteForneceAlimentacaoGoLive: false,
   clienteForneceHospedagemAlpha: false,
   modalidadeId: "",
+  clienteDeterminouTerminais: null,
+  quantidadeTerminaisCliente: null,
 }
 
 interface CreationStep {
@@ -129,6 +131,11 @@ export function MCOWizardPage() {
   const validateOperacionalStep = (): boolean => {
     if (!operacionalData.modalidadeId) {
       toast.error('Selecione o modelo operacional')
+      return false
+    }
+
+    if (operacionalData.clienteDeterminouTerminais === true && !operacionalData.quantidadeTerminaisCliente) {
+      toast.error('Informe a quantidade de terminais determinada pelo cliente')
       return false
     }
 

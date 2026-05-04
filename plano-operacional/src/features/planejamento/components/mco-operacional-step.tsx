@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { AlertTriangle, Users, Truck, Settings2, CheckCircle2, Loader2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { AlertTriangle, Users, Truck, Settings2, CheckCircle2, Loader2, CreditCard } from 'lucide-react'
 import type { MCOOperacionalData } from '../types/mco.types'
 import { modalidadesService } from '@/features/settings/services/mco-parametros.service'
 
@@ -83,6 +85,74 @@ export function MCOOperacionalStep({ data, onChange }: MCOOperacionalStepProps) 
               </p>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Quantidade de Terminais */}
+      <div className="bg-card rounded-lg border-2 border-border dark:border-white/20 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <CreditCard className="h-5 w-5 text-muted-foreground" />
+          <h3 className="font-semibold text-base text-foreground">Quantidade de Terminais</h3>
+          {data.clienteDeterminouTerminais !== null && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm text-foreground mb-3 block">
+              O cliente determinou a quantidade de terminais?
+            </Label>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant={data.clienteDeterminouTerminais === true ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onChange({ ...data, clienteDeterminouTerminais: true })}
+                className="flex-1"
+              >
+                Sim
+              </Button>
+              <Button
+                type="button"
+                variant={data.clienteDeterminouTerminais === false ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onChange({ ...data, clienteDeterminouTerminais: false, quantidadeTerminaisCliente: null })}
+                className="flex-1"
+              >
+                Não
+              </Button>
+            </div>
+          </div>
+
+          {data.clienteDeterminouTerminais === true && (
+            <div>
+              <Label htmlFor="terminais-cliente" className="text-sm text-foreground mb-2 block">
+                Quantidade de Terminais
+              </Label>
+              <Input
+                id="terminais-cliente"
+                type="number"
+                min={1}
+                placeholder="Ex: 50"
+                value={data.quantidadeTerminaisCliente ?? ''}
+                onChange={(e) =>
+                  onChange({
+                    ...data,
+                    quantidadeTerminaisCliente: e.target.value ? Number(e.target.value) : null,
+                  })
+                }
+                className="max-w-[200px]"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                O cálculo de equipe será baseado nesse valor, ignorando o TPV do modelo.
+              </p>
+            </div>
+          )}
+
+          {data.clienteDeterminouTerminais === false && (
+            <p className="text-xs text-muted-foreground">
+              A quantidade de terminais será calculada automaticamente com base no faturamento e modelo operacional.
+            </p>
+          )}
         </div>
       </div>
 
