@@ -55,6 +55,7 @@ export default function MCOResumoPage() {
   const contentRef = useRef<HTMLDivElement>(null)
 
   const [showDebug, setShowDebug] = useState(false)
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
 
   const { data: mco, isLoading } = useQuery({
     queryKey: ['mco-resumo', id],
@@ -65,8 +66,53 @@ export default function MCOResumoPage() {
     enabled: !!id,
   })
 
-  const handlePrint = () => {
-    window.print()
+  const handleDownloadPDF = async () => {
+    if (!contentRef.current || !mco) return
+    setIsGeneratingPdf(true)
+    try {
+      const [{ default: jsPDF }, { toPng }] = await Promise.all([
+        import('jspdf'),
+        import('html-to-image'),
+      ])
+
+      // Forçar tema claro durante a captura para o PDF sair com fundo branco.
+      // A remoção/restauração é síncrona e toPng opera em off-screen, sem flash visível.
+      const htmlEl = document.documentElement
+      const wasDark = htmlEl.classList.contains('dark')
+      if (wasDark) htmlEl.classList.remove('dark')
+
+      let imgData: string
+      try {
+        imgData = await toPng(contentRef.current, {
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+        })
+      } finally {
+        if (wasDark) htmlEl.classList.add('dark')
+      }
+
+      const img = new Image()
+      await new Promise<void>((res) => { img.onload = () => res(); img.src = imgData })
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const imgH = (img.naturalHeight * pageW) / img.naturalWidth
+
+      let remaining = imgH
+      let srcY = 0
+
+      while (remaining > 0) {
+        if (srcY > 0) pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, -srcY, pageW, imgH)
+        srcY += pageH
+        remaining -= pageH
+      }
+
+      pdf.save(`MCO-${mco.codigo ?? id}.pdf`)
+    } finally {
+      setIsGeneratingPdf(false)
+    }
   }
 
   const formatCurrency = (value: number | undefined | null) => {
@@ -111,13 +157,13 @@ export default function MCOResumoPage() {
   const getTipoAtendimentoBadgeColor = (tipo?: string) => {
     switch (tipo) {
       case 'atendimento_matriz':
-        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700'
+        return 'bg-blue-100 text-blue-700 border-blue-300'
       case 'filial':
-        return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700'
+        return 'bg-green-100 text-green-700 border-green-300'
       case 'filial_interior':
-        return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-700'
+        return 'bg-purple-100 text-purple-700 border-purple-300'
       default:
-        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700'
+        return 'bg-blue-100 text-blue-700 border-blue-300'
     }
   }
 
@@ -133,7 +179,7 @@ export default function MCOResumoPage() {
     if (!mco) return []
 
     const bd = mco.breakdown_custos as Record<string, any> | undefined
-    const periodoTotal = calcularTotalDias()
+    const dbg = bd?._debug as Record<string, any> | undefined
 
     const maoDeObra = bd?.mao_de_obra?.total ?? 0
     const alimentacao = bd?.alimentacao?.total ?? 0
@@ -142,6 +188,157 @@ export default function MCOResumoPage() {
     const transporte = bd?.transporte_local?.total ?? 0
     const frete = bd?.frete?.total ?? 0
 
+    // Mão de Obra: um item por cargo com breakdown viagem/setup/go_live
+    const buildMdoItens = (): ItemCusto[] => {
+      const mdoDet = dbg?.mdo_detalhes as Record<string, any> | undefined
+      if (!mdoDet || maoDeObra === 0) return []
+      return Object.entries(mdoDet)
+        .filter(([, d]: [string, any]) => d.total > 0)
+        .map(([sigla, d]: [string, any]) => {
+          const partes: string[] = []
+          if (d.custo_viagem > 0) partes.push('viagem')
+          if (d.custo_setup > 0) partes.push('setup')
+          if (d.custo_go_live > 0) partes.push('go live')
+          return {
+            nome: `${sigla}${partes.length ? ` (${partes.join(' + ')})` : ''}`,
+            quantidade: d.quantidade,
+            valorUnitario: d.quantidade > 0 ? d.total / d.quantidade : d.total,
+            valorTotal: d.total,
+            unidade: 'pessoa',
+          }
+        })
+    }
+
+    // Alimentação: linhas separadas por etapa (go live / viagem / setup)
+    const buildAlimentacaoItens = (): ItemCusto[] => {
+      const alim = bd?.alimentacao
+      if (!alim || alimentacao === 0) return []
+      const itens: ItemCusto[] = []
+      const numSessoes = dbg?.num_sessoes ?? mco.num_sessoes ?? 1
+      const diasViagem = dbg?.dias_viagem ?? 0
+      const diasSetup = dbg?.dias_setup ?? 0
+      const equipe = dbg?.alimentacao_total_equipe ?? 1
+
+      if ((alim.go_live ?? 0) > 0) {
+        itens.push({
+          nome: 'Alimentação Go Live',
+          quantidade: numSessoes,
+          valorUnitario: numSessoes > 0 ? alim.go_live / numSessoes : alim.go_live,
+          valorTotal: alim.go_live,
+          unidade: 'sessão',
+        })
+      }
+      if ((alim.viagem ?? 0) > 0) {
+        itens.push({
+          nome: 'Alimentação Viagem',
+          quantidade: diasViagem,
+          valorUnitario: diasViagem > 0 ? alim.viagem / diasViagem : alim.viagem,
+          valorTotal: alim.viagem,
+          unidade: 'dia',
+        })
+      }
+      if ((alim.setup ?? 0) > 0) {
+        itens.push({
+          nome: 'Alimentação Setup',
+          quantidade: diasSetup,
+          valorUnitario: diasSetup > 0 ? alim.setup / diasSetup : alim.setup,
+          valorTotal: alim.setup,
+          unidade: 'dia',
+        })
+      }
+      if (itens.length === 0 && alimentacao > 0) {
+        itens.push({
+          nome: 'Alimentação da equipe',
+          quantidade: equipe,
+          valorUnitario: equipe > 0 ? alimentacao / equipe : alimentacao,
+          valorTotal: alimentacao,
+          unidade: 'pessoa',
+        })
+      }
+      return itens
+    }
+
+    // Hospedagem: diária × alpha × dias
+    const buildHospedagemItens = (): ItemCusto[] => {
+      if (hospedagem === 0) return []
+      const alpha = dbg?.hospedagem_total_alpha ?? 1
+      const dias = dbg?.hospedagem_dias ?? dbg?.dias_hospedagem ?? 1
+      const diaria = dbg?.hospedagem_valor_diaria ?? (alpha * dias > 0 ? hospedagem / (alpha * dias) : hospedagem)
+      return [{
+        nome: `Hospedagem em ${mco.cidade}/${mco.uf} — ${alpha} pessoa(s) × ${dias} diária(s)`,
+        quantidade: dias,
+        valorUnitario: alpha * diaria,
+        valorTotal: hospedagem,
+        unidade: 'diária',
+      }]
+    }
+
+    // Viagem: distância × custo/km × pessoas × 2 (ida+volta)
+    const buildViagemItens = (): ItemCusto[] => {
+      if (viagem === 0) return []
+      const modal = bd?.viagem?.modal ? ` (${bd.viagem.modal})` : ''
+      const dist = Math.round(bd?.viagem?.distancia_km ?? dbg?.distancia_km ?? 0)
+      const alpha = dbg?.total_alpha ?? 1
+      const custoPorKm = dbg?.viagem_custo_por_km ?? 0
+      return [{
+        nome: `Viagem${modal} até ${mco.cidade}/${mco.uf} — ${dist} km × 2 (ida+volta)`,
+        quantidade: alpha,
+        valorUnitario: custoPorKm * dist * 2,
+        valorTotal: viagem,
+        unidade: 'pessoa',
+      }]
+    }
+
+    // Transporte local: valor_diário × alpha × dias
+    const buildTransporteItens = (): ItemCusto[] => {
+      if (transporte === 0) return []
+      const dias = dbg?.transporte_dias ?? 1
+      const diario = dbg?.transporte_valor_diario ?? 0
+      const alpha = dias > 0 && diario > 0 ? Math.round(transporte / (dias * diario)) : 1
+      return [{
+        nome: `Transporte local — ${alpha} pessoa(s) × ${dias} dia(s)`,
+        quantidade: dias,
+        valorUnitario: alpha * diario,
+        valorTotal: transporte,
+        unidade: 'dia',
+      }]
+    }
+
+    // Frete: base + km adicional
+    const buildFreteItens = (): ItemCusto[] => {
+      if (frete === 0) return []
+      const freteData = bd?.frete
+      if (!freteData || (freteData.valor_base === 0 && freteData.km_adicional === 0)) {
+        return [{
+          nome: `Frete de equipamentos para ${mco.cidade}/${mco.uf}`,
+          quantidade: 1,
+          valorUnitario: frete,
+          valorTotal: frete,
+          unidade: 'serviço',
+        }]
+      }
+      const itens: ItemCusto[] = []
+      if ((freteData.valor_base ?? 0) > 0) {
+        itens.push({
+          nome: 'Frete base',
+          quantidade: 1,
+          valorUnitario: freteData.valor_base,
+          valorTotal: freteData.valor_base,
+          unidade: 'serviço',
+        })
+      }
+      if ((freteData.km_adicional ?? 0) > 0) {
+        itens.push({
+          nome: 'Frete km excedente',
+          quantidade: 1,
+          valorUnitario: freteData.km_adicional,
+          valorTotal: freteData.km_adicional,
+          unidade: 'serviço',
+        })
+      }
+      return itens
+    }
+
     return [
       {
         key: 'mao_de_obra',
@@ -149,13 +346,7 @@ export default function MCOResumoPage() {
         valor: maoDeObra,
         icon: Users,
         cor: 'text-blue-600',
-        itens: maoDeObra > 0 ? [{
-          nome: 'Equipe técnica e operacional',
-          quantidade: 1,
-          valorUnitario: maoDeObra,
-          valorTotal: maoDeObra,
-          unidade: 'lote'
-        }] : []
+        itens: buildMdoItens(),
       },
       {
         key: 'alimentacao',
@@ -163,13 +354,7 @@ export default function MCOResumoPage() {
         valor: alimentacao,
         icon: UtensilsCrossed,
         cor: 'text-orange-600',
-        itens: alimentacao > 0 ? [{
-          nome: 'Alimentação da equipe durante o evento',
-          quantidade: mco.num_sessoes ?? 1,
-          valorUnitario: alimentacao / (mco.num_sessoes || 1),
-          valorTotal: alimentacao,
-          unidade: 'sessão'
-        }] : []
+        itens: buildAlimentacaoItens(),
       },
       {
         key: 'hospedagem',
@@ -177,13 +362,7 @@ export default function MCOResumoPage() {
         valor: hospedagem,
         icon: BedDouble,
         cor: 'text-purple-600',
-        itens: hospedagem > 0 ? [{
-          nome: `Hospedagem da equipe em ${mco.cidade}/${mco.uf}`,
-          quantidade: periodoTotal,
-          valorUnitario: periodoTotal > 0 ? hospedagem / periodoTotal : hospedagem,
-          valorTotal: hospedagem,
-          unidade: 'diária'
-        }] : []
+        itens: buildHospedagemItens(),
       },
       {
         key: 'viagem',
@@ -191,27 +370,15 @@ export default function MCOResumoPage() {
         valor: viagem,
         icon: Plane,
         cor: 'text-sky-600',
-        itens: viagem > 0 ? [{
-          nome: `Viagem ${bd?.viagem?.modal ? `(${bd.viagem.modal})` : ''} até ${mco.cidade}/${mco.uf}`,
-          quantidade: 1,
-          valorUnitario: viagem,
-          valorTotal: viagem,
-          unidade: 'lote'
-        }] : []
+        itens: buildViagemItens(),
       },
       {
         key: 'transporte',
-        label: 'Transporte',
+        label: 'Transporte Local',
         valor: transporte,
         icon: Car,
         cor: 'text-green-600',
-        itens: transporte > 0 ? [{
-          nome: 'Transporte local durante o evento',
-          quantidade: periodoTotal,
-          valorUnitario: periodoTotal > 0 ? transporte / periodoTotal : transporte,
-          valorTotal: transporte,
-          unidade: 'dia'
-        }] : []
+        itens: buildTransporteItens(),
       },
       {
         key: 'frete',
@@ -219,13 +386,7 @@ export default function MCOResumoPage() {
         valor: frete,
         icon: Truck,
         cor: 'text-gray-600',
-        itens: frete > 0 ? [{
-          nome: `Frete de equipamentos para ${mco.cidade}/${mco.uf}`,
-          quantidade: 1,
-          valorUnitario: frete,
-          valorTotal: frete,
-          unidade: 'serviço'
-        }] : []
+        itens: buildFreteItens(),
       },
     ].filter(c => c.valor > 0)
   }
@@ -272,31 +433,31 @@ export default function MCOResumoPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => handlePrint()} className="gap-2">
+          <Button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="gap-2">
             <Download className="h-4 w-4" />
-            Baixar PDF
+            {isGeneratingPdf ? 'Gerando...' : 'Baixar PDF'}
           </Button>
         </div>
       </div>
 
       {/* Conteúdo para impressão - otimizado para A4 */}
-      <div ref={contentRef} className="bg-white p-4 print:p-6 print:w-[210mm] print:min-h-[297mm] print:mx-auto space-y-3 print:space-y-2">
+      <div ref={contentRef} className="bg-white p-4 print:p-6 print:w-[210mm] print:min-h-[297mm] print:mx-auto space-y-3 print:space-y-2 text-gray-900">
         {/* Cabeçalho com informações */}
-        <div className="flex justify-between items-center pb-3 border-b print:pb-2">
+        <div className="flex justify-between items-center pb-3 border-b border-gray-200 print:pb-2">
           <div className="text-left">
-            <h2 className="text-xl font-bold text-primary print:text-lg">MATRIZ DE CUSTO OPERACIONAL</h2>
-            <p className="text-sm text-muted-foreground">Resumo Detalhado</p>
+            <h2 className="text-xl font-bold text-blue-600 print:text-lg">MATRIZ DE CUSTO OPERACIONAL</h2>
+            <p className="text-sm text-gray-500">Resumo Detalhado</p>
           </div>
           <div className="text-right">
             {mco.codigo && (
               <div className="mb-2">
-                <p className="text-lg font-bold text-primary print:text-base">
+                <p className="text-lg font-bold text-blue-600 print:text-base">
                   {mco.codigo}
-                  <span className="text-muted-foreground font-normal ml-2">Rev. 0</span>
+                  <span className="text-gray-500 font-normal ml-2">Rev. 0</span>
                 </p>
               </div>
             )}
-            <p className="text-xs text-muted-foreground print:text-[10px]">Documento gerado em:</p>
+            <p className="text-xs text-gray-500 print:text-[10px]">Documento gerado em:</p>
             <p className="text-sm font-medium print:text-xs">
               {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </p>
@@ -317,9 +478,9 @@ export default function MCOResumoPage() {
         </div>
 
         {/* Card Dados do Evento - Linha inteira */}
-        <Card className="w-full bg-white dark:bg-card print:shadow-none print:border">
+        <Card className="w-full bg-white border-gray-200 text-gray-900 print:shadow-none print:border">
           <CardHeader className="pb-2 print:pb-1 print:p-3">
-            <CardTitle className="text-xs text-muted-foreground uppercase flex items-center gap-1">
+            <CardTitle className="text-xs text-gray-500 uppercase flex items-center gap-1">
               <Calendar className="h-3 w-3" />
               Dados do Evento
             </CardTitle>
@@ -329,15 +490,15 @@ export default function MCOResumoPage() {
               {/* Coluna 1 - Cliente e Período */}
               <div className="space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Cliente:</span>
+                  <span className="text-gray-500">Cliente:</span>
                   <span className="font-medium text-right truncate ml-2">{mco.cliente_nome || '-'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Período:</span>
+                  <span className="text-gray-500">Período:</span>
                   <span className="font-medium">{formatDate(mco.data_inicial)} a {formatDate(mco.data_final)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Duração:</span>
+                  <span className="text-gray-500">Duração:</span>
                   <span className="font-medium">{totalDias} dias ({mco.num_sessoes || '-'} sessões)</span>
                 </div>
               </div>
@@ -345,11 +506,11 @@ export default function MCOResumoPage() {
               {/* Coluna 2 - Local */}
               <div className="space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Cidade:</span>
+                  <span className="text-gray-500">Cidade:</span>
                   <span className="font-medium">{mco.cidade}/{mco.uf}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Responsável:</span>
+                  <span className="text-gray-500">Responsável:</span>
                   <span className="font-medium">{mco.responsavel_nome || '-'}</span>
                 </div>
               </div>
@@ -357,22 +518,22 @@ export default function MCOResumoPage() {
               {/* Coluna 3 - Financeiro */}
               <div className="space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Faturamento:</span>
+                  <span className="text-gray-500">Faturamento:</span>
                   <span className="font-medium">{formatCurrency(parseFaturamento(mco.faturamento_estimado))}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Porte:</span>
+                  <span className="text-gray-500">Porte:</span>
                   <span className="font-medium">{mco.porte || 'N/D'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Público:</span>
+                  <span className="text-gray-500">Público:</span>
                   <span className="font-medium">{mco.publico_estimado ? parseInt(mco.publico_estimado).toLocaleString('pt-BR') : '-'}</span>
                 </div>
               </div>
 
               {/* Coluna 4 - Tipo de Atendimento em Destaque */}
               <div className="flex flex-col items-center justify-center">
-                <span className="text-[9px] text-muted-foreground mb-1 print:text-[8px]">Tipo de Atendimento</span>
+                <span className="text-[9px] text-gray-500 mb-1 print:text-[8px]">Tipo de Atendimento</span>
                 <Badge
                   variant="outline"
                   className={cn('text-sm px-3 py-1.5 font-bold uppercase', getTipoAtendimentoBadgeColor(mco.tipo_atendimento))}
@@ -385,15 +546,15 @@ export default function MCOResumoPage() {
         </Card>
 
         {/* Detalhamento de Custos com Tabela */}
-        <Card className="bg-white dark:bg-card print:shadow-none print:border overflow-hidden">
-          <CardHeader className="pb-2 print:pb-1 print:p-2 bg-muted/30">
-            <CardTitle className="text-xs text-muted-foreground uppercase flex items-center gap-1">
+        <Card className="bg-white border-gray-200 text-gray-900 print:shadow-none print:border overflow-hidden">
+          <CardHeader className="pb-2 print:pb-1 print:p-2 bg-gray-50">
+            <CardTitle className="text-xs text-gray-500 uppercase flex items-center gap-1">
               <DollarSign className="h-3 w-3" />
               Detalhamento dos Custos
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y">
+            <div className="divide-y divide-gray-200">
               {categorias.map((categoria) => {
                 const temItens = categoria.itens.length > 0
                 const IconComponent = categoria.icon
@@ -401,13 +562,13 @@ export default function MCOResumoPage() {
                 return (
                   <div key={categoria.key}>
                     {/* Cabeçalho da categoria */}
-                    <div className="w-full flex items-center justify-between px-3 py-2 bg-primary/5 print:py-1.5">
+                    <div className="w-full flex items-center justify-between px-3 py-2 bg-blue-50/50 print:py-1.5">
                       <div className="flex items-center gap-2">
                         <IconComponent className={cn('h-4 w-4 print:h-3 print:w-3', categoria.cor)} />
                         <div className="text-left">
                           <span className="text-sm font-medium print:text-xs">{categoria.label}</span>
                           {temItens && (
-                            <span className="text-[10px] text-muted-foreground ml-2 print:text-[8px]">
+                            <span className="text-[10px] text-gray-400 ml-2 print:text-[8px]">
                               {categoria.itens.length} {categoria.itens.length === 1 ? 'item' : 'itens'}
                             </span>
                           )}
@@ -417,7 +578,7 @@ export default function MCOResumoPage() {
                       <div className="flex items-center gap-2">
                         <div className="text-right">
                           <span className="font-semibold text-sm print:text-xs">{formatCurrency(categoria.valor)}</span>
-                          <span className="text-[10px] text-muted-foreground ml-1 print:text-[8px]">
+                          <span className="text-[10px] text-gray-400 ml-1 print:text-[8px]">
                             ({calcularPercentual(categoria.valor, custoTotal)}%)
                           </span>
                         </div>
@@ -426,10 +587,10 @@ export default function MCOResumoPage() {
 
                     {/* Itens - Sempre visíveis */}
                     {temItens && (
-                      <div className="bg-muted/20 border-t px-3 py-2">
+                      <div className="bg-gray-50 border-t border-gray-100 px-3 py-2">
                         <table className="w-full text-xs print:text-[9px]">
                           <thead>
-                            <tr className="text-muted-foreground">
+                            <tr className="text-gray-500">
                               <th className="text-left font-medium py-1">Item</th>
                               <th className="text-center font-medium py-1 w-16">Qtd</th>
                               <th className="text-right font-medium py-1 w-24">V. Unit.</th>
@@ -438,12 +599,12 @@ export default function MCOResumoPage() {
                           </thead>
                           <tbody>
                             {categoria.itens.map((item, idx) => (
-                              <tr key={idx} className="border-t border-muted/30">
+                              <tr key={idx} className="border-t border-gray-100">
                                 <td className="py-1">{item.nome}</td>
                                 <td className="py-1 text-center">
                                   {item.quantidade}
                                   {item.unidade && (
-                                    <span className="text-[9px] text-muted-foreground ml-0.5">{item.unidade}</span>
+                                    <span className="text-[9px] text-gray-400 ml-0.5">{item.unidade}</span>
                                   )}
                                 </td>
                                 <td className="py-1 text-right">{formatCurrency(item.valorUnitario)}</td>
@@ -460,11 +621,11 @@ export default function MCOResumoPage() {
             </div>
 
             {/* Total */}
-            <div className="flex justify-between items-center p-3 bg-primary/5 border-t-2 border-primary/20 print:p-2">
+            <div className="flex justify-between items-center p-3 bg-blue-50 border-t-2 border-blue-200 print:p-2">
               <span className="font-bold text-sm print:text-xs">
                 CUSTO OPERACIONAL TOTAL
               </span>
-              <span className="text-xl font-bold text-primary print:text-lg">
+              <span className="text-xl font-bold text-blue-600 print:text-lg">
                 {formatCurrency(custoTotal)}
               </span>
             </div>
@@ -632,18 +793,6 @@ export default function MCOResumoPage() {
         )
       })()}
 
-      {/* Estilos de impressão */}
-      <style>{`
-        @media print {
-          body {
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
-          }
-          .print\\:hidden {
-            display: none !important;
-          }
-        }
-      `}</style>
     </div>
   )
 }
